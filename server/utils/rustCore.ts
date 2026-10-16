@@ -1,10 +1,24 @@
 import { spawn } from 'child_process';
+import fs from 'fs';
 import path from 'path';
 
 const RUST_CORE_TIMEOUT_MS = 15000;
 
 function getWorkspaceRoot(): string {
-  return path.resolve(__dirname, '..', '..', '..');
+  const candidates = [
+    process.cwd(),
+    path.resolve(process.cwd(), '..'),
+    path.resolve(__dirname, '..', '..'),
+    path.resolve(__dirname, '..', '..', '..'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, 'rust-core', 'Cargo.toml'))) {
+      return candidate;
+    }
+  }
+
+  return process.cwd();
 }
 
 function resolveRustBinaryPath(): string {
@@ -12,16 +26,38 @@ function resolveRustBinaryPath(): string {
     return process.env.RUST_CORE_BINARY;
   }
 
-  const binaryName = process.platform === 'win32' ? 'karma_yoga_core.exe' : 'karma_yoga_core';
-  return path.join(getWorkspaceRoot(), 'rust-core', 'target', 'release', binaryName);
+  const workspaceRoot = getWorkspaceRoot();
+  const isWin = process.platform === 'win32';
+
+  const binaryNames = isWin
+    ? ['verity_core.exe', 'karma_yoga_core.exe']
+    : ['verity_core', 'karma_yoga_core'];
+
+  for (const profile of ['release', 'debug']) {
+    for (const name of binaryNames) {
+      const p = path.join(workspaceRoot, 'rust-core', 'target', profile, name);
+      if (fs.existsSync(p)) {
+        return p;
+      }
+    }
+  }
+
+  // Default target path
+  const defaultName = isWin ? 'verity_core.exe' : 'verity_core';
+  return path.join(workspaceRoot, 'rust-core', 'target', 'release', defaultName);
 }
 
 export async function runRustAnalytics(payload: unknown): Promise<unknown> {
   const binaryPath = resolveRustBinaryPath();
+  const workspaceRoot = getWorkspaceRoot();
+
+  if (!fs.existsSync(binaryPath)) {
+    throw new Error(`Rust core binary not found at ${binaryPath}`);
+  }
 
   return new Promise((resolve, reject) => {
     const child = spawn(binaryPath, [], {
-      cwd: path.join(getWorkspaceRoot(), 'rust-core'),
+      cwd: path.join(workspaceRoot, 'rust-core'),
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });

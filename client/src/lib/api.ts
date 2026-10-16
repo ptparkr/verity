@@ -17,36 +17,51 @@ import type {
   HealthTrend,
   BiologicalMarker,
   TodayCheckinStatus,
-  WheelData,
-  WheelAxis,
-  WheelSnapshot,
-  WheelAxisId,
 } from '../types';
 
 const BASE = '/api';
 const ACTIVE_IDENTITY_META_KEY = 'activeIdentityId';
+
+/**
+ * IndexedDB name. Supports both legacy ('karma-yoga-local-first') and
+ * new ('verity-local-first') databases transparently for backward compat.
+ */
+const INDEXED_DB_NAMES = ['verity-local-first', 'karma-yoga-local-first'];
 
 let activeGuestId: string | null = null;
 
 async function readActiveGuestIdFromIndexedDb(): Promise<string | null> {
   if (typeof indexedDB === 'undefined') return null;
 
+  for (const dbName of INDEXED_DB_NAMES) {
+    const result = await tryReadFromDb(dbName);
+    if (result) return result;
+  }
+  return null;
+}
+
+function tryReadFromDb(dbName: string): Promise<string | null> {
   return new Promise(resolve => {
-    const request = indexedDB.open('karma-yoga-local-first', 1);
+    const request = indexedDB.open(dbName, 1);
     request.onerror = () => resolve(null);
     request.onsuccess = () => {
       const db = request.result;
-      const tx = db.transaction('meta', 'readonly');
-      const store = tx.objectStore('meta');
-      const getRequest = store.get(ACTIVE_IDENTITY_META_KEY);
-      getRequest.onsuccess = () => {
-        db.close();
-        resolve(getRequest.result?.value ?? null);
-      };
-      getRequest.onerror = () => {
+      try {
+        const tx = db.transaction('meta', 'readonly');
+        const store = tx.objectStore('meta');
+        const getRequest = store.get(ACTIVE_IDENTITY_META_KEY);
+        getRequest.onsuccess = () => {
+          db.close();
+          resolve(getRequest.result?.value ?? null);
+        };
+        getRequest.onerror = () => {
+          db.close();
+          resolve(null);
+        };
+      } catch {
         db.close();
         resolve(null);
-      };
+      }
     };
   });
 }
@@ -57,7 +72,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...(activeGuestId ? { 'X-Karma-Guest-ID': activeGuestId } : {}),
+      // Send both headers: X-Verity-Guest-ID (new) and X-Karma-Guest-ID (legacy).
+      // Server accepts either. This ensures zero downtime during migration.
+      ...(activeGuestId ? {
+        'X-Verity-Guest-ID': activeGuestId,
+        'X-Karma-Guest-ID':  activeGuestId,
+      } : {}),
       ...(options?.headers ?? {}),
     },
     ...options,
@@ -80,6 +100,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 }
 
+export type HabitWithCheckins = {
+  id: string;
+  name: string;
+  area: string;
+  target_days: string;
+  checkins: string[];
+};
+
 export const api = {
   // Habits
   getHabits: () => request<Habit[]>('/habits'),
@@ -96,8 +124,10 @@ export const api = {
     request<{ success: boolean; targetDays: number[] }>(`/habits/${id}/target-days`, { method: 'PUT', body: JSON.stringify({ targetDays }) }),
   getCheckinsInRange: (id: string, start: string, end: string) =>
     request<string[]>(`/habits/${id}/checkins/range?start=${start}&end=${end}`),
-  // Batch fetch ALL habits with checkins (avoids N+1)
-  getAllHabitsWithCheckins: () => request<{ id: string; name: string; area: string; target_days: string; checkins: string[] }[]>('/habits/all/checkins'),
+  /** Batch fetch ALL habits with their check-in dates (avoids N+1 for scoring). */
+  getAllHabitsWithCheckins: () => request<HabitWithCheckins[]>('/habits/all/checkins'),
+  /** Alias for scoring hook compatibility */
+  getHabitsWithCheckins: () => request<HabitWithCheckins[]>('/habits/all/checkins'),
 
   // Dashboard
   getStreaks: () => request<StreakData[]>('/dashboard/streaks'),
@@ -124,6 +154,8 @@ export const api = {
   getAreaColors: () => request<AreaColor[]>('/areas'),
   updateAreaColor: (name: string, color: string) =>
     request<AreaColor>(`/areas/${name}`, { method: 'PUT', body: JSON.stringify({ color }) }),
+  addArea: (name: string, color: string) =>
+    request<AreaColor>('/areas', { method: 'POST', body: JSON.stringify({ name, color }) }),
   deleteArea: (name: string) =>
     request<DeleteResponse>(`/areas/${name}`, { method: 'DELETE' }),
 
@@ -138,11 +170,4 @@ export const api = {
   createMarker: (marker: Partial<BiologicalMarker>) =>
     request<BiologicalMarker>('/health/markers', { method: 'POST', body: JSON.stringify(marker) }),
   getMarkers: () => request<BiologicalMarker[]>('/health/markers'),
-
-  // Wheel
-  getWheel: () => request<WheelData>('/wheel'),
-  updateWheelAxis: (id: WheelAxisId, score: number, type: 'current' | 'target') =>
-    request<WheelAxis>(`/wheel/axis/${id}`, { method: 'PUT', body: JSON.stringify({ score, type }) }),
-  createWheelSnapshot: () => request<WheelSnapshot>('/wheel/snapshot', { method: 'POST' }),
-  getWheelSnapshots: (weeks = 12) => request<WheelSnapshot[]>(`/wheel/snapshots?weeks=${weeks}`),
 };

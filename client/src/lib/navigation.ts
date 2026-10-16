@@ -10,7 +10,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { to: '/habits', label: 'Habits', hint: 'Check-ins, streaks, and areas', shortcut: 'H' },
   { to: '/pomodoro', label: 'Pomodoro', hint: 'Focus timer and session quality', shortcut: 'P' },
   { to: '/health', label: 'Health', hint: 'Check-ins, trends, and longevity', shortcut: 'E' },
-  { to: '/wheel', label: 'Wheel', hint: 'Life-balance wheel and snapshots', shortcut: 'W' },
   { to: '/analytics', label: 'Analytics', hint: 'Correlations and deep insights', shortcut: 'A' },
   { to: '/settings', label: 'Settings', hint: 'Preferences and defaults', shortcut: 'S' },
 ];

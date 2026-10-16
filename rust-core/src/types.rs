@@ -98,10 +98,64 @@ pub struct AnalyticsRequest {
     pub areas: Vec<String>,
     #[serde(default = "default_weeks")]
     pub weeks: usize,
+    /// Optional EMA alpha override. Defaults to 0.2 if not provided.
+    #[serde(default)]
+    pub scoring_alpha: Option<f64>,
 }
 
 fn default_weeks() -> usize {
     8
+}
+
+// ── Verity Scoring Types ──────────────────────────────────────────────────
+
+/// Input to the Verity 4-area scoring pipeline.
+/// Re-uses HabitInput + HabitEntryInput from the analytics request.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoringRequest {
+    pub habits: Vec<HabitInput>,
+    pub habit_entries: Vec<HabitEntryInput>,
+    #[serde(default = "default_scoring_alpha")]
+    pub alpha: f64,
+}
+
+fn default_scoring_alpha() -> f64 {
+    0.2
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AreaScorePoint {
+    pub area: String,
+    pub date: String,
+    pub score: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompositePoint {
+    pub date: String,
+    pub play: f64,
+    pub health: f64,
+    pub mind: f64,
+    pub social: f64,
+    pub composite: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectionPoint {
+    pub date: String,
+    pub composite: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoringResponse {
+    pub area_series: Vec<AreaScorePoint>,
+    pub composite_series: Vec<CompositePoint>,
+    pub projection: Vec<ProjectionPoint>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -190,4 +244,7 @@ pub struct AnalyticsResponse {
     pub sleep_focus_data: Vec<CorrelationPoint>,
     pub sleep_focus_regression: RegressionLine,
     pub weekly_report: WeeklyReportData,
+    /// Verity 4-area compounding scores.
+    pub scoring: ScoringResponse,
 }
+

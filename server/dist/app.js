@@ -15,7 +15,6 @@ const pomodoro_1 = __importDefault(require("./routes/pomodoro"));
 const areas_1 = __importDefault(require("./routes/areas"));
 const utils_1 = __importDefault(require("./routes/utils"));
 const health_1 = __importDefault(require("./routes/health"));
-const wheel_1 = __importDefault(require("./routes/wheel"));
 let dbInitPromise = null;
 async function ensureDbReady() {
     if (!dbInitPromise) {
@@ -47,7 +46,6 @@ function createServerApp() {
     app.use('/api/areas', areas_1.default);
     app.use('/api/utils', utils_1.default);
     app.use('/api/health', health_1.default);
-    app.use('/api/wheel', wheel_1.default);
     app.use((error, _req, res, _next) => {
         const message = error instanceof Error ? error.message : 'Unexpected server error';
         res.status(500).json({ error: message });

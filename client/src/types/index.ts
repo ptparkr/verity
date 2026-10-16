@@ -223,26 +223,7 @@ export interface TodayCheckinStatus {
   checkin: HealthCheckin | null;
 }
 
-// ─── Wheel of Life Types ───────────────────────────────────────
 
-export type WheelAxisId = 'body' | 'mind' | 'soul' | 'growth' | 'money' | 'mission' | 'romance' | 'family' | 'friends' | 'joy';
-
-export interface WheelAxis {
-  id: WheelAxisId;
-  currentScore: number;
-  targetScore: number;
-}
-
-export interface WheelSnapshot {
-  id: string;
-  date: string;
-  scores: Record<WheelAxisId, number>;
-}
-
-export interface WheelData {
-  axes: WheelAxis[];
-  snapshots: WheelSnapshot[];
-}
 
 export interface UserProfileSettings {
   name: string;

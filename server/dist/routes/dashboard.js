@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const auth_1 = require("../auth");
 const db_1 = require("../db");
 const time_1 = require("../utils/time");
 const router = (0, express_1.Router)();
@@ -72,10 +73,11 @@ function computeLongestStreak(dates) {
     return longest;
 }
 // GET /api/dashboard/streaks
-router.get('/streaks', (_req, res) => {
-    const habits = queryAll('SELECT id, name, area FROM habits');
+router.get('/streaks', (req, res) => {
+    const ownerId = (0, auth_1.getOwnerId)(req);
+    const habits = queryAll('SELECT id, name, area FROM habits WHERE owner_id = ?', [ownerId]);
     const streaks = habits.map(h => {
-        const rows = queryAll('SELECT date FROM checkins WHERE habit_id = ? ORDER BY date', [h.id]);
+        const rows = queryAll('SELECT date FROM checkins WHERE habit_id = ? AND owner_id = ? ORDER BY date', [h.id, ownerId]);
         const dates = rows.map((r) => r.date);
         return {
             habitId: h.id,
@@ -89,7 +91,8 @@ router.get('/streaks', (_req, res) => {
     res.json(streaks);
 });
 // GET /api/dashboard/weekly
-router.get('/weekly', (_req, res) => {
+router.get('/weekly', (req, res) => {
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const timeInfo = (0, time_1.getCurrentTimeInfo)();
     const weekDates = [];
     const monday = new Date(timeInfo.weekStart);
@@ -98,9 +101,9 @@ router.get('/weekly', (_req, res) => {
         d.setDate(monday.getDate() + i);
         weekDates.push((0, time_1.toDateStr)(d));
     }
-    const habits = queryAll('SELECT id, name, area FROM habits');
+    const habits = queryAll('SELECT id, name, area FROM habits WHERE owner_id = ?', [ownerId]);
     const matrix = habits.map(h => {
-        const rows = queryAll('SELECT date FROM checkins WHERE habit_id = ? AND date >= ? AND date <= ?', [h.id, weekDates[0], weekDates[6]]);
+        const rows = queryAll('SELECT date FROM checkins WHERE habit_id = ? AND owner_id = ? AND date >= ? AND date <= ?', [h.id, ownerId, weekDates[0], weekDates[6]]);
         const checkedDates = new Set(rows.map((r) => r.date));
         return {
             habitId: h.id,
@@ -112,16 +115,18 @@ router.get('/weekly', (_req, res) => {
     res.json({ weekDates, matrix });
 });
 // GET /api/dashboard/areas
-router.get('/areas', (_req, res) => {
+router.get('/areas', (req, res) => {
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const thirtyDaysAgo = (0, time_1.getDaysAgo)(30);
     const areas = queryAll(`
     SELECT h.area,
       COUNT(DISTINCT h.id) as total,
       COUNT(c.id) as checked
     FROM habits h
-    LEFT JOIN checkins c ON c.habit_id = h.id AND c.date >= ?
+    LEFT JOIN checkins c ON c.habit_id = h.id AND c.owner_id = h.owner_id AND c.date >= ?
+    WHERE h.owner_id = ?
     GROUP BY h.area
-  `, [thirtyDaysAgo]);
+  `, [thirtyDaysAgo, ownerId]);
     const result = areas.map((a) => ({
         area: a.area,
         habitCount: a.total,
@@ -132,15 +137,16 @@ router.get('/areas', (_req, res) => {
     res.json(result);
 });
 // GET /api/dashboard/consistency
-router.get('/consistency', (_req, res) => {
+router.get('/consistency', (req, res) => {
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const thirtyDaysAgo = (0, time_1.getDaysAgo)(30);
     const row = queryOne(`
     SELECT
-      (SELECT COUNT(*) FROM habits) as total_habits,
+      (SELECT COUNT(*) FROM habits WHERE owner_id = ?) as total_habits,
       COUNT(*) as total_checkins
     FROM checkins
-    WHERE date >= ?
-  `, [thirtyDaysAgo]);
+    WHERE date >= ? AND owner_id = ?
+  `, [ownerId, thirtyDaysAgo, ownerId]);
     const totalHabits = row?.total_habits || 0;
     const totalCheckins = row?.total_checkins || 0;
     const possible = totalHabits * 30;

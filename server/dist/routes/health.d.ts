@@ -11,7 +11,7 @@ export declare function calculateLongevity(input: LongevityInput, age?: number):
     ageDelta: number;
     factors: Record<string, number>;
 };
-export declare function getTodayCheckin(): {
+export declare function getTodayCheckin(ownerId: string): {
     hasCheckedIn: boolean;
     checkin: {
         id: any;
@@ -40,7 +40,7 @@ export declare function createOrUpdateCheckin(data: {
     energyLevel: number | null;
     moodScore: number | null;
     notes: string;
-}): {
+}, ownerId: string): {
     id: string;
     date: string;
     hrv: number | null;
@@ -52,14 +52,15 @@ export declare function createOrUpdateCheckin(data: {
     moodScore: number | null;
     notes: string;
 };
-export declare function getHealthTrends(metric: string, days?: number): any[];
-export declare function getLongevityScore(age?: number): {
+export declare function getHealthTrends(metric: string, days?: number, ownerId?: string): any[];
+export declare function getLongevityScore(age?: number, ownerId?: string): {
     score: number;
     biologicalAge: number;
     ageDelta: number;
     factors: Record<string, number>;
 };
 export declare function createMarker(data: {
+    ownerId: string;
     id?: string;
     date?: string;
     vo2MaxEstimate: number | null;
@@ -78,6 +79,6 @@ export declare function createMarker(data: {
     bodyFatPercent: number | null;
     restingHRAvg: number | null;
 };
-export declare function getMarkers(): any[];
+export declare function getMarkers(ownerId: string): any[];
 declare const router: import("express-serve-static-core").Router;
 export default router;

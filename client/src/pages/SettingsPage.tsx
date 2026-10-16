@@ -9,23 +9,19 @@ type NumericFieldKey =
   | 'weightKg'
   | 'waistCm'
   | 'bodyFatPercent'
-  | 'restingHeartRate'
-  | 'shortBreak'
-  | 'longBreak'
-  | 'pomosBeforeLongBreak';
+  | 'restingHeartRate';
 
-const MEASUREMENT_FIELDS: { key: Extract<NumericFieldKey, 'heightCm' | 'weightKg' | 'waistCm' | 'bodyFatPercent' | 'restingHeartRate'>; label: string; helper: string; suffix: string }[] = [
-  { key: 'heightCm', label: 'Height', helper: 'Used only for future body metrics and measurement tracking.', suffix: 'cm' },
-  { key: 'weightKg', label: 'Weight', helper: 'Stores your current baseline weight for the measurements panel.', suffix: 'kg' },
-  { key: 'waistCm', label: 'Waist', helper: 'Useful for progress snapshots and health context.', suffix: 'cm' },
+const MEASUREMENT_FIELDS: {
+  key: NumericFieldKey;
+  label: string;
+  helper: string;
+  suffix: string;
+}[] = [
+  { key: 'heightCm', label: 'Height', helper: 'Used for physiological metrics and body tracking.', suffix: 'cm' },
+  { key: 'weightKg', label: 'Weight', helper: 'Stores your current baseline weight for body tracking.', suffix: 'kg' },
+  { key: 'waistCm', label: 'Waist', helper: 'Useful for visceral fat context and health tracking.', suffix: 'cm' },
   { key: 'bodyFatPercent', label: 'Body Fat', helper: 'Optional estimate for body-composition tracking.', suffix: '%' },
-  { key: 'restingHeartRate', label: 'Resting Heart Rate', helper: 'Keeps a baseline for future health correlation views.', suffix: 'bpm' },
-];
-
-const POMODORO_FIELDS: { key: Extract<NumericFieldKey, 'shortBreak' | 'longBreak' | 'pomosBeforeLongBreak'>; label: string; helper: string; suffix: string }[] = [
-  { key: 'shortBreak', label: 'Short Break', helper: 'Applied between completed focus cycles.', suffix: 'min' },
-  { key: 'longBreak', label: 'Long Break', helper: 'Applied when the long-break cycle threshold is reached.', suffix: 'min' },
-  { key: 'pomosBeforeLongBreak', label: 'Cycles Before Long Break', helper: 'Controls how many completed sessions trigger the long break.', suffix: 'cycles' },
+  { key: 'restingHeartRate', label: 'Resting Heart Rate', helper: 'Keeps a baseline for autonomic & longevity correlation views.', suffix: 'bpm' },
 ];
 
 function valueToDraft(value: number | null) {
@@ -50,9 +46,6 @@ export function SettingsPage() {
     waistCm: valueToDraft(settings.measurements.waistCm),
     bodyFatPercent: valueToDraft(settings.measurements.bodyFatPercent),
     restingHeartRate: valueToDraft(settings.measurements.restingHeartRate),
-    shortBreak: String(settings.pomodoro.shortBreak),
-    longBreak: String(settings.pomodoro.longBreak),
-    pomosBeforeLongBreak: String(settings.pomodoro.pomosBeforeLongBreak),
   });
 
   useEffect(() => {
@@ -62,9 +55,6 @@ export function SettingsPage() {
       waistCm: valueToDraft(settings.measurements.waistCm),
       bodyFatPercent: valueToDraft(settings.measurements.bodyFatPercent),
       restingHeartRate: valueToDraft(settings.measurements.restingHeartRate),
-      shortBreak: String(settings.pomodoro.shortBreak),
-      longBreak: String(settings.pomodoro.longBreak),
-      pomosBeforeLongBreak: String(settings.pomodoro.pomosBeforeLongBreak),
     });
   }, [settings]);
 
@@ -92,7 +82,7 @@ export function SettingsPage() {
     setNumericDrafts(current => ({ ...current, [key]: nextValue }));
   };
 
-  const handleMeasurementChange = (key: typeof MEASUREMENT_FIELDS[number]['key'], nextValue: string) => {
+  const handleMeasurementChange = (key: NumericFieldKey, nextValue: string) => {
     updateNumericDraft(key, nextValue);
     if (nextValue.trim() === '') return;
     const parsed = Number(nextValue);
@@ -103,18 +93,7 @@ export function SettingsPage() {
     }));
   };
 
-  const handlePomodoroChange = (key: typeof POMODORO_FIELDS[number]['key'], nextValue: string) => {
-    updateNumericDraft(key, nextValue);
-    if (nextValue.trim() === '') return;
-    const parsed = Number(nextValue);
-    if (!Number.isFinite(parsed)) return;
-    markDirty(current => ({
-      ...current,
-      pomodoro: { ...current.pomodoro, [key]: parsed },
-    }));
-  };
-
-  const commitMeasurementField = (key: typeof MEASUREMENT_FIELDS[number]['key']) => {
+  const commitMeasurementField = (key: NumericFieldKey) => {
     const rawValue = numericDrafts[key].trim();
     if (rawValue === '') {
       markDirty(current => ({
@@ -136,39 +115,11 @@ export function SettingsPage() {
     }));
   };
 
-  const commitPomodoroField = (key: typeof POMODORO_FIELDS[number]['key']) => {
-    const rawValue = numericDrafts[key].trim();
-    if (rawValue === '') {
-      setNumericDrafts(current => ({
-        ...current,
-        [key]: String(settings.pomodoro[key]),
-      }));
-      return;
-    }
-
-    const parsed = Number(rawValue);
-    if (!Number.isFinite(parsed)) {
-      setNumericDrafts(current => ({
-        ...current,
-        [key]: String(settings.pomodoro[key]),
-      }));
-      return;
-    }
-
-    markDirty(current => ({
-      ...current,
-      pomodoro: {
-        ...current.pomodoro,
-        [key]: parsed,
-      },
-    }));
-  };
-
   return (
     <div className="page-shell">
       <PageHeader
         title="Settings"
-        subtitle="Personal profile, measurements, focus defaults, and local app behavior."
+        subtitle="Personal profile, biological baseline measurements, and app preferences."
       />
 
       <StatusBanner
@@ -206,7 +157,7 @@ export function SettingsPage() {
                   }));
                 }}
               />
-              <span className="settings-helper">Stored locally and used only to personalize the app.</span>
+              <span className="settings-helper">Stored locally and used only to personalize your workspace.</span>
             </label>
 
             <label className="settings-field">
@@ -223,7 +174,7 @@ export function SettingsPage() {
                   }));
                 }}
               />
-              <span className="settings-helper">Used only for future age-aware insights.</span>
+              <span className="settings-helper">Used to calculate biological age and longevity trajectories.</span>
             </label>
           </div>
 
@@ -243,7 +194,7 @@ export function SettingsPage() {
                 }));
               }}
             />
-            <span className="settings-helper">Optional context for future health and performance analytics.</span>
+            <span className="settings-helper">Context for physiological benchmarks and longevity correlations.</span>
           </div>
         </section>
 
@@ -271,67 +222,8 @@ export function SettingsPage() {
         </section>
 
         <section className="card settings-card">
-          <div className="card-title">Pomodoro Defaults</div>
-          <div className="settings-field">
-            <span className="settings-label">Default Focus Duration</span>
-            <SegmentedControl
-              className="settings-pill-row"
-              options={[25, 45, 90].map(minutes => ({ value: minutes as 25 | 45 | 90, label: `${minutes}m` }))}
-              value={settings.pomodoro.defaultPomoDuration}
-              onChange={minutes => {
-                markDirty(current => ({
-                  ...current,
-                  pomodoro: { ...current.pomodoro, defaultPomoDuration: minutes },
-                }));
-              }}
-            />
-            <span className="settings-helper">This becomes the starting preset whenever the Pomodoro screen opens.</span>
-          </div>
-
-          <div className="settings-field-grid">
-            {POMODORO_FIELDS.map(field => (
-              <label key={field.key} className="settings-field">
-                <span className="settings-label">{field.label}</span>
-                <div className="settings-input-with-suffix">
-                  <input
-                    type="number"
-                    className="input"
-                    min={1}
-                    value={numericDrafts[field.key]}
-                    onChange={event => handlePomodoroChange(field.key, event.target.value)}
-                    onBlur={() => commitPomodoroField(field.key)}
-                  />
-                  <span className="settings-suffix">{field.suffix}</span>
-                </div>
-                <span className="settings-helper">{field.helper}</span>
-              </label>
-            ))}
-          </div>
-        </section>
-
-        <section className="card settings-card">
           <div className="card-title">App Behavior</div>
           <div className="settings-toggle-list">
-            <button
-              type="button"
-              className={`settings-toggle ${settings.preferences.showAdaptiveRecommendations ? 'active' : ''}`}
-              onClick={() => {
-                markDirty(current => ({
-                  ...current,
-                  preferences: {
-                    ...current.preferences,
-                    showAdaptiveRecommendations: !current.preferences.showAdaptiveRecommendations,
-                  },
-                }));
-              }}
-            >
-              <div>
-                <span className="settings-label">Adaptive Pomodoro Recommendations</span>
-                <span className="settings-helper">Shows recommendation cards based on recent rated sessions.</span>
-              </div>
-              <span className="settings-toggle-indicator">{settings.preferences.showAdaptiveRecommendations ? 'On' : 'Off'}</span>
-            </button>
-
             <button
               type="button"
               className={`settings-toggle ${settings.preferences.reducedMotion ? 'active' : ''}`}
@@ -347,7 +239,7 @@ export function SettingsPage() {
             >
               <div>
                 <span className="settings-label">Reduced Motion</span>
-                <span className="settings-helper">Softens nonessential animation and glow effects for comfort.</span>
+                <span className="settings-helper">Softens animations and visual transitions for comfort.</span>
               </div>
               <span className="settings-toggle-indicator">{settings.preferences.reducedMotion ? 'On' : 'Off'}</span>
             </button>

@@ -1,4 +1,16 @@
-node_modules/ 
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Rust build artifacts
 rust-core/target/
 
+# Vercel
 .vercel
+
+# Environment & local files
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db

@@ -4,6 +4,7 @@ mod momentum;
 mod peak_hours;
 mod pipeline;
 mod regression;
+mod scoring;
 mod sleep_correlation;
 mod types;
 mod weekly_report;

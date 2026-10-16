@@ -5,23 +5,53 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runRustAnalytics = runRustAnalytics;
 const child_process_1 = require("child_process");
+const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const RUST_CORE_TIMEOUT_MS = 15000;
 function getWorkspaceRoot() {
-    return path_1.default.resolve(__dirname, '..', '..', '..');
+    const candidates = [
+        process.cwd(),
+        path_1.default.resolve(process.cwd(), '..'),
+        path_1.default.resolve(__dirname, '..', '..'),
+        path_1.default.resolve(__dirname, '..', '..', '..'),
+    ];
+    for (const candidate of candidates) {
+        if (fs_1.default.existsSync(path_1.default.join(candidate, 'rust-core', 'Cargo.toml'))) {
+            return candidate;
+        }
+    }
+    return process.cwd();
 }
 function resolveRustBinaryPath() {
     if (process.env.RUST_CORE_BINARY) {
         return process.env.RUST_CORE_BINARY;
     }
-    const binaryName = process.platform === 'win32' ? 'karma_yoga_core.exe' : 'karma_yoga_core';
-    return path_1.default.join(getWorkspaceRoot(), 'rust-core', 'target', 'release', binaryName);
+    const workspaceRoot = getWorkspaceRoot();
+    const isWin = process.platform === 'win32';
+    const binaryNames = isWin
+        ? ['verity_core.exe', 'karma_yoga_core.exe']
+        : ['verity_core', 'karma_yoga_core'];
+    for (const profile of ['release', 'debug']) {
+        for (const name of binaryNames) {
+            const p = path_1.default.join(workspaceRoot, 'rust-core', 'target', profile, name);
+            if (fs_1.default.existsSync(p)) {
+                return p;
+            }
+        }
+    }
+    // Default target path
+    const defaultName = isWin ? 'verity_core.exe' : 'verity_core';
+    return path_1.default.join(workspaceRoot, 'rust-core', 'target', 'release', defaultName);
 }
 async function runRustAnalytics(payload) {
     const binaryPath = resolveRustBinaryPath();
+    const workspaceRoot = getWorkspaceRoot();
+    if (!fs_1.default.existsSync(binaryPath)) {
+        throw new Error(`Rust core binary not found at ${binaryPath}`);
+    }
     return new Promise((resolve, reject) => {
         const child = (0, child_process_1.spawn)(binaryPath, [], {
-            cwd: path_1.default.join(getWorkspaceRoot(), 'rust-core'),
+            cwd: path_1.default.join(workspaceRoot, 'rust-core'),
             stdio: ['pipe', 'pipe', 'pipe'],
             windowsHide: true,
         });

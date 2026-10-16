@@ -15,7 +15,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean;
       )}
       <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-brand">
-          <span className="brand-text">Karma-Yoga</span>
+          <span className="brand-text">Verity</span>
           <button
             className="sidebar-toggle-btn"
             onClick={() => setIsCollapsed(true)}

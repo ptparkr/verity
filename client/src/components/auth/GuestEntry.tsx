@@ -22,10 +22,10 @@ export function GuestEntry() {
     <main className="guest-entry-shell">
       <section className="guest-entry-panel animate-in">
         <div className="guest-entry-copy">
-          <span className="guest-entry-kicker">Local-first guest space</span>
-          <h1>Karma Yoga</h1>
+          <span className="guest-entry-kicker">Local-first workspace</span>
+          <h1>Verity</h1>
           <p>
-            Step into a private dashboard for habits, focus, health, and life balance. Your guest identity is created on this device and restored automatically when you return.
+            Track what your daily actions are compounding into across Play, Health, Mind, and Social. Your identity is created on this device and restored automatically.
           </p>
         </div>
 

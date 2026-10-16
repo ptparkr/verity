@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import type { PomodoroSession, HabitWithSchedule, AreaSummary, ConsistencyData, StreakData, WheelAxisId, HealthCheckin } from '../types';
+import type { PomodoroSession, HabitWithSchedule, AreaSummary, ConsistencyData, StreakData, HealthCheckin } from '../types';
 import type {
   MomentumDataPoint,
   PeakHourCell,
@@ -18,7 +18,6 @@ import {
 } from '../lib/analytics';
 import { useAreaColors } from './useAreaColors';
 
-type WheelAxis = { id: WheelAxisId; currentScore: number; targetScore: number };
 type BatchHabitRecord = { id: string; name: string; area: string; target_days: string; checkins: string[] };
 
 interface FetchResult<T> {
@@ -68,35 +67,6 @@ function parseTargetDays(targetDays: string | undefined): number[] {
   }
 }
 
-function loadLocalWheelFallback(): { axes: WheelAxis[]; snapshots: { date: string; scores: Record<WheelAxisId, number> }[] } {
-  const defaultAxes: WheelAxisId[] = ['body', 'mind', 'soul', 'growth', 'money', 'mission', 'romance', 'family', 'friends', 'joy'];
-
-  try {
-    const stored = localStorage.getItem('wheel_data');
-    if (!stored) {
-      return {
-        axes: defaultAxes.map(id => ({ id, currentScore: 5, targetScore: 8 })),
-        snapshots: [],
-      };
-    }
-
-    const parsed = JSON.parse(stored);
-    return {
-      axes: defaultAxes.map(id => ({
-        id,
-        currentScore: parsed.axes?.[id]?.currentScore ?? 5,
-        targetScore: parsed.axes?.[id]?.targetScore ?? 8,
-      })),
-      snapshots: parsed.snapshots || [],
-    };
-  } catch {
-    return {
-      axes: defaultAxes.map(id => ({ id, currentScore: 5, targetScore: 8 })),
-      snapshots: [],
-    };
-  }
-}
-
 export function useAnalytics() {
   const [sessions, setSessions] = useState<PomodoroSession[]>([]);
   const [habits, setHabits] = useState<HabitWithSchedule[]>([]);
@@ -104,11 +74,8 @@ export function useAnalytics() {
   const [areaSummaries, setAreaSummaries] = useState<AreaSummary[]>([]);
   const [consistency, setConsistency] = useState<ConsistencyData | null>(null);
   const [streaks, setStreaks] = useState<StreakData[]>([]);
-  const [wheelAxes, setWheelAxes] = useState<WheelAxis[]>([]);
-  const [wheelSnapshots, setWheelSnapshots] = useState<{ date: string; scores: Record<WheelAxisId, number> }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { areas: areaColorsList, getColor } = useAreaColors();
 
   const [momentum, setMomentum] = useState<MomentumDataPoint[]>([]);
   const [peakHours, setPeakHours] = useState<PeakHourCell[][]>([]);
@@ -116,20 +83,21 @@ export function useAnalytics() {
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReportData | null>(null);
   const [healthCheckins, setHealthCheckins] = useState<HealthCheckin[]>([]);
   const [sleepFocusData, setSleepFocusData] = useState<CorrelationPoint[]>([]);
-  const [sleepFocusRegression, setSleepFocusRegression] = useState<{ slope: number; intercept: number }>({ slope: 0, intercept: 0 });
+  const [sleepFocusRegression, setSleepFocusRegression] = useState({ slope: 0, intercept: 0 });
+
+  const { areas: areaColorsList, getColor } = useAreaColors();
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    const [sessionsResult, habitsResult, areasResult, consistencyResult, streaksResult, healthResult, wheelResult] = await Promise.all([
+    const [sessionsResult, habitsResult, areasResult, consistencyResult, streaksResult, healthResult] = await Promise.all([
       settleValue('sessions', () => api.getRecentSessions(30), [] as PomodoroSession[]),
       settleValue('habits', () => api.getAllHabitsWithCheckins(), [] as BatchHabitRecord[]),
       settleValue('areas', () => api.getAreas(), [] as AreaSummary[]),
       settleValue('consistency', () => api.getConsistency(), null as ConsistencyData | null),
       settleValue('streaks', () => api.getStreaks(), [] as StreakData[]),
       settleValue('health checkins', () => api.getHealthCheckins(30), [] as HealthCheckin[]),
-      settleValue('wheel data', () => api.getWheel(), null as Awaited<ReturnType<typeof api.getWheel>> | null),
     ]);
 
     const errors = [
@@ -139,7 +107,6 @@ export function useAnalytics() {
       ...consistencyResult.errors,
       ...streaksResult.errors,
       ...healthResult.errors,
-      ...wheelResult.errors,
     ];
 
     const sessionsData = sessionsResult.data;
@@ -158,13 +125,6 @@ export function useAnalytics() {
       habit.checkins.map(date => ({ habitId: habit.id, date, completed: true }))
     );
 
-    const wheelFallback = wheelResult.data
-      ? {
-          axes: wheelResult.data.axes,
-          snapshots: wheelResult.data.snapshots,
-        }
-      : loadLocalWheelFallback();
-
     const correlationData = sleepFocusCorrelation(sessionsData, healthResult.data);
     const regressionData = correlationData.map(point => ({ x: point.sleepHours, y: point.avgFocusMinutes }));
 
@@ -175,8 +135,6 @@ export function useAnalytics() {
     setConsistency(consistencyResult.data);
     setStreaks(streaksResult.data);
     setHealthCheckins(healthResult.data);
-    setWheelAxes(wheelFallback.axes);
-    setWheelSnapshots(wheelFallback.snapshots || []);
 
     let usedRustCore = false;
     try {
@@ -185,7 +143,7 @@ export function useAnalytics() {
         checkins: healthResult.data,
         habits: habitsData,
         habitEntries,
-        wheelAxes: wheelFallback.axes,
+        wheelAxes: [],
         areas: derivedAreas,
         weeks: 8,
       };
@@ -217,7 +175,7 @@ export function useAnalytics() {
           healthResult.data,
           habitsData,
           habitEntries,
-          wheelFallback.axes
+          []
         )
       );
     }
@@ -237,8 +195,6 @@ export function useAnalytics() {
     areaSummaries,
     consistency,
     streaks,
-    wheelAxes,
-    wheelSnapshots,
     momentum,
     peakHours,
     areaBalance,
@@ -248,7 +204,7 @@ export function useAnalytics() {
     sleepFocusRegression,
     loading,
     error,
-    getColor,
     refresh: loadData,
+    getColor,
   };
 }

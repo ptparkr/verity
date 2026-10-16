@@ -12,7 +12,7 @@ export function WeeklyReportPreview({ report }: Props) {
     <div className="card dashboard-card dashboard-report-card">
       <div className="dashboard-card-header">
         <div>
-          <div className="card-title">Weekly Karma Report</div>
+          <div className="card-title">Weekly Verity Report</div>
           <p className="dashboard-card-subtitle">A compact readout from the habit and focus layers you already have.</p>
         </div>
       </div>
@@ -56,7 +56,7 @@ export function WeeklyReportPreview({ report }: Props) {
       </div>
 
       <div className="report-preview-note">
-        Health and wheel insights can slot into this card later without replacing the current dashboard flow.
+        Health and life-area compounding momentum feed into this summary.
       </div>
     </div>
   );

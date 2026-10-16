@@ -115,21 +115,6 @@ export function WeeklyReport({ report }: Props) {
             </div>
           </div>
 
-          <div className="weekly-report-section">
-            <h4>Wheel</h4>
-            <div className="weekly-report-grid">
-              <div className="weekly-report-item">
-                <span className="weekly-report-item-value">{report.wheelBalanceScore}</span>
-                <span className="weekly-report-item-label">Balance</span>
-              </div>
-              {report.lowestWheelAxis && (
-                <div className="weekly-report-item">
-                  <span className="weekly-report-item-value">{report.lowestWheelAxis.score}</span>
-                  <span className="weekly-report-item-label">{report.lowestWheelAxis.label}</span>
-                </div>
-              )}
-            </div>
-          </div>
 
           <div className="weekly-report-section recommendations">
             <h4>Recommendations</h4>
@@ -153,7 +138,7 @@ export function WeeklyReport({ report }: Props) {
 
 function generatePlainText(report: WeeklyReportData): string {
   const lines = [
-    `📊 Karma Yoga Weekly Report — ${report.weekStart} to ${report.weekEnd}`,
+    `📊 Verity Weekly Report — ${report.weekStart} to ${report.weekEnd}`,
     '',
     `🎯 Focus: ${report.totalFocusMinutes} min, ${report.completedSessions} sessions, ${Math.round(report.completionRate * 100)}% completion`,
     `✅ Habits: ${Math.round(report.habitCompletionRate * 100)}% completion`,
@@ -161,8 +146,6 @@ function generatePlainText(report: WeeklyReportData): string {
     '',
     `❤️ Health: Sleep ${report.sleepAvg?.toFixed(1) || '—'}h, HRV ${report.hrvAvg || '—'}`,
     `⚡ Energy ${report.energyAvg?.toFixed(1) || '—'}, Mood ${report.moodAvg?.toFixed(1) || '—'}`,
-    '',
-    `◎ Wheel Balance: ${report.wheelBalanceScore}, Lowest: ${report.lowestWheelAxis?.label || '—'}`,
     '',
     '💡 Recommendations:',
     ...report.recommendations.map((r, i) => `${i + 1}. ${r}`),

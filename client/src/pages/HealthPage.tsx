@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { useHealth } from '../hooks/useHealth';
-import type { BiologicalMarker } from '../types';
+import { LongevityMap } from '../components/health/LongevityMap';
 
 export function HealthPage() {
-  const { todayStatus, longevity, trends, markers, loading, submitCheckin, addMarker } = useHealth();
+  const { todayStatus, longevity, trends, markers, checkins, loading, submitCheckin } = useHealth();
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -91,24 +91,11 @@ export function HealthPage() {
         </div>
       </div>
 
-      <div className="section">
-        <div className="section-title">Monthly Markers</div>
-        <div className="marker-form-card">
-          <MarkerForm onSubmit={addMarker} />
-        </div>
-        {markers.length > 0 && (
-          <div className="marker-list">
-            {markers.slice(0, 5).map((marker: BiologicalMarker) => (
-              <div key={marker.id} className="marker-item">
-                <span className="marker-date">{marker.date}</span>
-                {marker.weightKg && <span>{marker.weightKg}kg</span>}
-                {marker.bodyFatPercent && <span>{marker.bodyFatPercent}%</span>}
-                {marker.vo2MaxEstimate && <span>VO2 {marker.vo2MaxEstimate}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <LongevityMap
+        longevity={longevity}
+        recentCheckins={checkins}
+        latestMarker={markers.length > 0 ? markers[0] : null}
+      />
     </div>
   );
 }
@@ -252,71 +239,3 @@ function TrendCard({ label, data, unit }: { label: string; data: { date: string;
   );
 }
 
-function MarkerForm({ onSubmit }: { onSubmit: (data: any) => Promise<any> }) {
-  const [formData, setFormData] = useState({
-    weightKg: null as number | null,
-    bodyFatPercent: null as number | null,
-    vo2MaxEstimate: null as number | null,
-    gripStrengthKg: null as number | null,
-    waistCm: null as number | null,
-    restingHRAvg: null as number | null,
-  });
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSubmitting(true);
-    try {
-      await onSubmit(formData);
-      setFormData({ weightKg: null, bodyFatPercent: null, vo2MaxEstimate: null, gripStrengthKg: null, waistCm: null, restingHRAvg: null });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="marker-form">
-      <div className="marker-grid">
-        <input
-          type="number"
-          placeholder="Weight (kg)"
-          value={formData.weightKg ?? ''}
-          onChange={event => setFormData({ ...formData, weightKg: event.target.value ? parseFloat(event.target.value) : null })}
-        />
-        <input
-          type="number"
-          placeholder="Body Fat %"
-          value={formData.bodyFatPercent ?? ''}
-          onChange={event => setFormData({ ...formData, bodyFatPercent: event.target.value ? parseFloat(event.target.value) : null })}
-        />
-        <input
-          type="number"
-          placeholder="VO2 Max"
-          value={formData.vo2MaxEstimate ?? ''}
-          onChange={event => setFormData({ ...formData, vo2MaxEstimate: event.target.value ? parseFloat(event.target.value) : null })}
-        />
-        <input
-          type="number"
-          placeholder="Grip (kg)"
-          value={formData.gripStrengthKg ?? ''}
-          onChange={event => setFormData({ ...formData, gripStrengthKg: event.target.value ? parseFloat(event.target.value) : null })}
-        />
-        <input
-          type="number"
-          placeholder="Waist (cm)"
-          value={formData.waistCm ?? ''}
-          onChange={event => setFormData({ ...formData, waistCm: event.target.value ? parseFloat(event.target.value) : null })}
-        />
-        <input
-          type="number"
-          placeholder="Avg Resting HR"
-          value={formData.restingHRAvg ?? ''}
-          onChange={event => setFormData({ ...formData, restingHRAvg: event.target.value ? parseInt(event.target.value, 10) : null })}
-        />
-      </div>
-      <button type="submit" className="btn btn-ghost" disabled={submitting}>
-        {submitting ? 'Saving...' : 'Log Monthly Marker'}
-      </button>
-    </form>
-  );
-}

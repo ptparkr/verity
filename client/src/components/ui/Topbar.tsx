@@ -10,7 +10,7 @@ interface TopbarProps {
 export function Topbar({ onOpenCommandPalette }: TopbarProps) {
   const location = useLocation();
   const { identity } = useAuth();
-  const pageTitle = ROUTE_TITLE_MAP[location.pathname] ?? 'Karma Yoga';
+  const pageTitle = ROUTE_TITLE_MAP[location.pathname] ?? 'Verity';
 
   const dateLabel = useMemo(() => {
     return new Date().toLocaleDateString('en-US', {
@@ -29,7 +29,7 @@ export function Topbar({ onOpenCommandPalette }: TopbarProps) {
           <span className="window-dot zoom" />
         </div>
         <div className="topbar-title-group">
-          <span className="topbar-kicker">Karma Yoga</span>
+          <span className="topbar-kicker">Verity</span>
           <span className="topbar-title">{pageTitle}</span>
         </div>
       </div>

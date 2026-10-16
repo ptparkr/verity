@@ -32,6 +32,7 @@ export function useHealth() {
     hrv: [], sleep: [], restingHR: [], energy: [], mood: [] 
   });
   const [markers, setMarkers] = useState<BiologicalMarker[]>([]);
+  const [checkins, setCheckins] = useState<HealthCheckin[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -50,7 +51,7 @@ export function useHealth() {
         }
       }
 
-      const [status, lon, tr, mk] = await Promise.all([
+      const [status, lon, tr, mk, ch] = await Promise.all([
         api.getTodayCheckin(),
         api.getLongevity(age),
         Promise.all([
@@ -61,11 +62,13 @@ export function useHealth() {
           api.getHealthTrends('mood', 30),
         ]),
         api.getMarkers(),
+        api.getHealthCheckins(30),
       ]);
       setTodayStatus(status);
       setLongevity(lon);
       setTrends({ hrv: tr[0], sleep: tr[1], restingHR: tr[2], energy: tr[3], mood: tr[4] });
       setMarkers(mk);
+      setCheckins(ch);
     } catch (err) {
       console.error('Failed to load health data:', err);
     } finally {
@@ -93,6 +96,7 @@ export function useHealth() {
     longevity,
     trends,
     markers,
+    checkins,
     loading,
     submitCheckin,
     addMarker,

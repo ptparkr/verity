@@ -12,7 +12,6 @@ import { DashboardPage } from './pages/DashboardPage';
 import { HabitsPage } from './pages/HabitsPage';
 import { PomodoroPage } from './pages/PomodoroPage';
 import { HealthPage } from './pages/HealthPage';
-import { WheelPage } from './pages/WheelPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -25,7 +24,7 @@ export function App() {
 
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
-    () => storageGetString('karma_yoga_sidebar_collapsed', 'false') === 'true'
+    () => (storageGetString('verity_sidebar_collapsed', '') || storageGetString('karma_yoga_sidebar_collapsed', 'false')) === 'true'
   );
 
   useEffect(() => {
@@ -45,7 +44,7 @@ export function App() {
 
   const handleSidebarChange = (nextValue: boolean) => {
     setIsSidebarCollapsed(nextValue);
-    storageSetString('karma_yoga_sidebar_collapsed', String(nextValue));
+    storageSetString('verity_sidebar_collapsed', String(nextValue));
   };
 
   if (isBooting) {
@@ -73,7 +72,6 @@ export function App() {
               <Route path="/habits" element={<HabitsPage />} />
               <Route path="/pomodoro" element={<PomodoroPage />} />
               <Route path="/health" element={<HealthPage />} />
-              <Route path="/wheel" element={<WheelPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

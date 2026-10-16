@@ -24,20 +24,27 @@ function resolveSqlJsLocateFile(file: string): string {
 }
 
 function resolveDbPath(): string {
-  if (process.env.KARMA_DB_PATH) {
-    return process.env.KARMA_DB_PATH;
-  }
-
-  const dbFileName = process.env.KARMA_DB_FILE || 'karma-yoga.db';
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    const tempDir = process.env.TMPDIR || '/tmp';
-    return path.join(tempDir, dbFileName);
+  if (process.env.VERITY_DB_PATH || process.env.KARMA_DB_PATH) {
+    return (process.env.VERITY_DB_PATH || process.env.KARMA_DB_PATH)!;
   }
 
   const cwd = process.cwd();
   const workspaceRoot = path.basename(cwd).toLowerCase() === 'server'
     ? path.resolve(cwd, '..')
     : cwd;
+
+  // Use VERITY_DB_FILE if provided, or default to verity.db (or karma-yoga.db if legacy file already exists)
+  let dbFileName = process.env.VERITY_DB_FILE || process.env.KARMA_DB_FILE;
+  if (!dbFileName) {
+    dbFileName = fs.existsSync(path.join(workspaceRoot, 'verity.db'))
+      ? 'verity.db'
+      : (fs.existsSync(path.join(workspaceRoot, 'karma-yoga.db')) ? 'karma-yoga.db' : 'verity.db');
+  }
+
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const tempDir = process.env.TMPDIR || '/tmp';
+    return path.join(tempDir, dbFileName);
+  }
 
   return path.join(workspaceRoot, dbFileName);
 }

@@ -2,8 +2,17 @@ import { Request } from 'express';
 
 const FALLBACK_OWNER_ID = 'guest_legacy';
 
+/**
+ * Extract the guest owner-ID from the request.
+ *
+ * Checks X-Verity-Guest-ID first (new header), then X-Karma-Guest-ID (legacy
+ * header kept for backward compatibility), then query param ownerId.
+ * This dual-header approach allows a zero-downtime migration.
+ */
 export function getOwnerId(req: Request): string {
-  const raw = req.header('X-Karma-Guest-ID') || req.query.ownerId;
+  const raw = req.header('X-Verity-Guest-ID')
+    || req.header('X-Karma-Guest-ID')
+    || req.query.ownerId;
   const ownerId = Array.isArray(raw) ? raw[0] : raw;
 
   if (typeof ownerId !== 'string') return FALLBACK_OWNER_ID;

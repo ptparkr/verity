@@ -2,13 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const nanoid_1 = require("nanoid");
+const auth_1 = require("../auth");
 const db_1 = require("../db");
 const time_1 = require("../utils/time");
 const router = (0, express_1.Router)();
 // GET /api/habits — list all habits
-router.get('/', (_req, res) => {
+router.get('/', (req, res) => {
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const db = (0, db_1.getDb)();
-    const stmt = db.prepare('SELECT * FROM habits ORDER BY area, created_at');
+    const stmt = db.prepare('SELECT * FROM habits WHERE owner_id = ? ORDER BY area, created_at');
+    stmt.bind([ownerId]);
     const habits = [];
     while (stmt.step()) {
         habits.push(stmt.getAsObject());
@@ -24,12 +27,13 @@ router.post('/', (req, res) => {
         return;
     }
     const db = (0, db_1.getDb)();
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const id = (0, nanoid_1.nanoid)(12);
     const days = Array.isArray(targetDays) ? JSON.stringify(targetDays) : '[0,1,2,3,4,5,6]';
-    db.run('INSERT INTO habits (id, name, area, target_days) VALUES (?, ?, ?, ?)', [id, name.trim(), area, days]);
+    db.run('INSERT INTO habits (id, name, area, target_days, owner_id) VALUES (?, ?, ?, ?, ?)', [id, name.trim(), area, days, ownerId]);
     (0, db_1.saveDb)();
-    const stmt = db.prepare('SELECT * FROM habits WHERE id = ?');
-    stmt.bind([id]);
+    const stmt = db.prepare('SELECT * FROM habits WHERE id = ? AND owner_id = ?');
+    stmt.bind([id, ownerId]);
     let habit = null;
     if (stmt.step()) {
         habit = stmt.getAsObject();
@@ -38,17 +42,20 @@ router.post('/', (req, res) => {
     res.status(201).json(habit);
 });
 // GET /api/habits/all/checkins — batch fetch ALL habits and their checkins in one call
-router.get('/all/checkins', (_req, res) => {
+router.get('/all/checkins', (req, res) => {
     const db = (0, db_1.getDb)();
+    const ownerId = (0, auth_1.getOwnerId)(req);
     // Get all habits
-    const habitsStmt = db.prepare('SELECT id, name, area, target_days FROM habits ORDER BY area, created_at');
+    const habitsStmt = db.prepare('SELECT id, name, area, target_days FROM habits WHERE owner_id = ? ORDER BY area, created_at');
+    habitsStmt.bind([ownerId]);
     const habits = [];
     while (habitsStmt.step()) {
         habits.push(habitsStmt.getAsObject());
     }
     habitsStmt.free();
     // Get all checkins grouped by habit_id
-    const checkinsStmt = db.prepare('SELECT habit_id, date FROM checkins ORDER BY habit_id, date');
+    const checkinsStmt = db.prepare('SELECT habit_id, date FROM checkins WHERE owner_id = ? ORDER BY habit_id, date');
+    checkinsStmt.bind([ownerId]);
     const checkinsMap = {};
     while (checkinsStmt.step()) {
         const row = checkinsStmt.getAsObject();
@@ -68,18 +75,19 @@ router.get('/all/checkins', (_req, res) => {
 // DELETE /api/habits/:id — delete habit + cascade check-ins
 router.delete('/:id', (req, res) => {
     const { id } = req.params;
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const db = (0, db_1.getDb)();
     // Check exists
-    const stmt = db.prepare('SELECT id FROM habits WHERE id = ?');
-    stmt.bind([id]);
+    const stmt = db.prepare('SELECT id FROM habits WHERE id = ? AND owner_id = ?');
+    stmt.bind([id, ownerId]);
     const exists = stmt.step();
     stmt.free();
     if (!exists) {
         res.status(404).json({ error: 'habit not found' });
         return;
     }
-    db.run('DELETE FROM checkins WHERE habit_id = ?', [id]);
-    db.run('DELETE FROM habits WHERE id = ?', [id]);
+    db.run('DELETE FROM checkins WHERE habit_id = ? AND owner_id = ?', [id, ownerId]);
+    db.run('DELETE FROM habits WHERE id = ? AND owner_id = ?', [id, ownerId]);
     (0, db_1.saveDb)();
     res.json({ deleted: true });
 });
@@ -87,20 +95,21 @@ router.delete('/:id', (req, res) => {
 router.post('/:id/checkin', (req, res) => {
     const { id } = req.params;
     const { date } = req.body;
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const dateStr = date || (0, time_1.toDateStr)();
     const db = (0, db_1.getDb)();
     // Check if already checked in
-    const stmt = db.prepare('SELECT id FROM checkins WHERE habit_id = ? AND date = ?');
-    stmt.bind([id, dateStr]);
+    const stmt = db.prepare('SELECT id FROM checkins WHERE habit_id = ? AND date = ? AND owner_id = ?');
+    stmt.bind([id, dateStr, ownerId]);
     const exists = stmt.step();
     stmt.free();
     if (exists) {
-        db.run('DELETE FROM checkins WHERE habit_id = ? AND date = ?', [id, dateStr]);
+        db.run('DELETE FROM checkins WHERE habit_id = ? AND date = ? AND owner_id = ?', [id, dateStr, ownerId]);
         (0, db_1.saveDb)();
         res.json({ checked: false, date: dateStr });
     }
     else {
-        db.run('INSERT INTO checkins (habit_id, date) VALUES (?, ?)', [id, dateStr]);
+        db.run('INSERT INTO checkins (habit_id, date, owner_id) VALUES (?, ?, ?)', [id, dateStr, ownerId]);
         (0, db_1.saveDb)();
         res.json({ checked: true, date: dateStr });
     }
@@ -108,9 +117,10 @@ router.post('/:id/checkin', (req, res) => {
 // GET /api/habits/:id/checkins — all check-in dates for a habit
 router.get('/:id/checkins', (req, res) => {
     const { id } = req.params;
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const db = (0, db_1.getDb)();
-    const stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? ORDER BY date');
-    stmt.bind([id]);
+    const stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? AND owner_id = ? ORDER BY date');
+    stmt.bind([id, ownerId]);
     const dates = [];
     while (stmt.step()) {
         dates.push(stmt.getAsObject().date);
@@ -121,10 +131,11 @@ router.get('/:id/checkins', (req, res) => {
 // GET /api/habits/:id/streak — get current and longest streak for a habit
 router.get('/:id/streak', (req, res) => {
     const { id } = req.params;
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const db = (0, db_1.getDb)();
     // Get all checkins for this habit, ordered by date
-    const stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? ORDER BY date DESC');
-    stmt.bind([id]);
+    const stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? AND owner_id = ? ORDER BY date DESC');
+    stmt.bind([id, ownerId]);
     const dates = [];
     while (stmt.step()) {
         dates.push(stmt.getAsObject().date);
@@ -179,10 +190,12 @@ router.get('/:id/streak', (req, res) => {
     });
 });
 // GET /api/habits/leaderboard — get all habits with streaks sorted
-router.get('/leaderboard', (_req, res) => {
+router.get('/leaderboard', (req, res) => {
     const db = (0, db_1.getDb)();
+    const ownerId = (0, auth_1.getOwnerId)(req);
     // Get all habits with their checkins
-    const habitsStmt = db.prepare('SELECT id, name, area FROM habits ORDER BY area, name');
+    const habitsStmt = db.prepare('SELECT id, name, area FROM habits WHERE owner_id = ? ORDER BY area, name');
+    habitsStmt.bind([ownerId]);
     const habits = [];
     while (habitsStmt.step()) {
         habits.push(habitsStmt.getAsObject());
@@ -190,8 +203,8 @@ router.get('/leaderboard', (_req, res) => {
     habitsStmt.free();
     const results = habits.map(habit => {
         // Get all checkins for this habit
-        const checkinStmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? ORDER BY date DESC');
-        checkinStmt.bind([habit.id]);
+        const checkinStmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? AND owner_id = ? ORDER BY date DESC');
+        checkinStmt.bind([habit.id, ownerId]);
         const dates = [];
         while (checkinStmt.step()) {
             dates.push(checkinStmt.getAsObject().date);
@@ -246,13 +259,14 @@ router.get('/leaderboard', (_req, res) => {
 router.put('/:id/target-days', (req, res) => {
     const { id } = req.params;
     const { targetDays } = req.body;
+    const ownerId = (0, auth_1.getOwnerId)(req);
     if (!Array.isArray(targetDays)) {
         res.status(400).json({ error: 'targetDays must be an array of day indices (0-6)' });
         return;
     }
     const db = (0, db_1.getDb)();
     const targetDaysJson = JSON.stringify(targetDays);
-    db.run('UPDATE habits SET target_days = ? WHERE id = ?', [targetDaysJson, id]);
+    db.run('UPDATE habits SET target_days = ? WHERE id = ? AND owner_id = ?', [targetDaysJson, id, ownerId]);
     (0, db_1.saveDb)();
     res.json({ success: true, targetDays });
 });
@@ -260,15 +274,16 @@ router.put('/:id/target-days', (req, res) => {
 router.get('/:id/checkins/range', (req, res) => {
     const { id } = req.params;
     const { start, end } = req.query;
+    const ownerId = (0, auth_1.getOwnerId)(req);
     const db = (0, db_1.getDb)();
     let stmt;
     if (start && end) {
-        stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? AND date >= ? AND date <= ? ORDER BY date');
-        stmt.bind([id, start, end]);
+        stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? AND owner_id = ? AND date >= ? AND date <= ? ORDER BY date');
+        stmt.bind([id, ownerId, start, end]);
     }
     else {
-        stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? ORDER BY date');
-        stmt.bind([id]);
+        stmt = db.prepare('SELECT date FROM checkins WHERE habit_id = ? AND owner_id = ? ORDER BY date');
+        stmt.bind([id, ownerId]);
     }
     const dates = [];
     while (stmt.step()) {

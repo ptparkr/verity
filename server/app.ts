@@ -7,7 +7,6 @@ import pomodoroRouter from './routes/pomodoro';
 import areasRouter from './routes/areas';
 import utilsRouter from './routes/utils';
 import healthRouter from './routes/health';
-import wheelRouter from './routes/wheel';
 
 let dbInitPromise: Promise<unknown> | null = null;
 
@@ -44,7 +43,6 @@ export function createServerApp() {
   app.use('/api/areas', areasRouter);
   app.use('/api/utils', utilsRouter);
   app.use('/api/health', healthRouter);
-  app.use('/api/wheel', wheelRouter);
 
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const message = error instanceof Error ? error.message : 'Unexpected server error';

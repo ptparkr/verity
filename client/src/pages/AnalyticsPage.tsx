@@ -1,28 +1,26 @@
 import { useMemo, useState } from 'react';
 import { useAnalytics } from '../hooks/useAnalytics';
+import { useScoring } from '../hooks/useScoring';
+import { CompositeGraph } from '../components/analytics/CompositeGraph';
 import { MomentumScore } from '../components/analytics/MomentumScore';
 import { PeakHoursChart } from '../components/analytics/PeakHoursChart';
 import { AreaBalance } from '../components/analytics/AreaBalance';
 import { SleepFocusCorrelation } from '../components/analytics/SleepFocusCorrelation';
 import { HabitAreaAnalytics } from '../components/analytics/HabitAreaAnalytics';
 import { HealthCorrelations } from '../components/analytics/HealthCorrelations';
-import { WheelAnalytics } from '../components/analytics/WheelAnalytics';
 import { WeeklyReport } from '../components/analytics/WeeklyReport';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { StatusBanner } from '../components/ui/StatusBanner';
 import { useAreaColors } from '../hooks/useAreaColors';
-import type { WheelAxisId } from '../types';
 
-type WheelAxis = { id: WheelAxisId; currentScore: number; targetScore: number };
-type TabId = 'overview' | 'focus' | 'habits' | 'health' | 'wheel';
+type TabId = 'overview' | 'focus' | 'habits' | 'health';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'focus', label: 'Focus' },
   { id: 'habits', label: 'Habits' },
   { id: 'health', label: 'Health' },
-  { id: 'wheel', label: 'Wheel' },
 ];
 
 export function AnalyticsPage() {
@@ -38,15 +36,20 @@ export function AnalyticsPage() {
     areaSummaries,
     consistency,
     streaks,
-    wheelAxes,
     healthCheckins,
     sleepFocusData,
     sleepFocusRegression,
-    loading,
+    loading: analyticsLoading,
     error,
     refresh,
     getColor: analyticsGetColor,
   } = useAnalytics();
+
+  const {
+    composite,
+    zoomedView,
+    loading: scoringLoading,
+  } = useScoring();
 
   const getAreaColor = analyticsGetColor || getColor;
 
@@ -56,14 +59,16 @@ export function AnalyticsPage() {
       : 0;
 
     const consistencyPct = consistency?.percentage || 0;
-    const wheelScore = wheelAxes.length > 0 ? computeWheelBalance(wheelAxes) : 50;
+    const roundedComposite = Math.round(composite);
 
     return [
+      { label: 'Composite Score', value: roundedComposite, unit: '/100', color: '#f0f6fc' },
       { label: 'Momentum', value: avgMomentum, unit: '/100', color: '#3b8bd4' },
       { label: 'Consistency', value: consistencyPct, unit: '%', color: '#1D9E75' },
-      { label: 'Wheel Balance', value: wheelScore, unit: '/100', color: '#7F77DD' },
     ];
-  }, [momentum, consistency, wheelAxes]);
+  }, [momentum, consistency, composite]);
+
+  const loading = analyticsLoading && scoringLoading;
 
   if (loading) {
     return (
@@ -79,7 +84,7 @@ export function AnalyticsPage() {
     <div className="page-shell">
       <PageHeader
         title="Analytics"
-        subtitle="Your data powerhouse - see what's working and what needs attention."
+        subtitle="Your compounding momentum engine — see what your daily actions are building into."
       />
 
       {error && (
@@ -109,6 +114,11 @@ export function AnalyticsPage() {
                   <div className="analytics-card-label">{card.label}</div>
                 </div>
               ))}
+            </div>
+
+            {/* Featured 4-Area Weighted Composite Graph */}
+            <div className="analytics-section">
+              <CompositeGraph zoomedView={zoomedView} loading={scoringLoading} />
             </div>
 
             <div className="analytics-section">
@@ -186,15 +196,6 @@ export function AnalyticsPage() {
             </div>
           </div>
         )}
-
-        {activeTab === 'wheel' && (
-          <div className="analytics-wheel">
-            <div className="analytics-section">
-              <h3 className="analytics-section-title">Wheel Balance Score</h3>
-              <WheelAnalytics axes={wheelAxes} />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -228,14 +229,6 @@ function FocusSessionsList({ sessions }: { sessions: any[] }) {
   );
 }
 
-function computeWheelBalance(axes: { currentScore: number }[]): number {
-  if (axes.length === 0) return 50;
-  const scores = axes.map(axis => axis.currentScore);
-  const mean = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-  const variance = scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length;
-  return Math.max(0, Math.round(100 - Math.sqrt(variance) * 10));
-}
-
 function StreakLeaderboardSimple({ streaks, getColor }: { streaks: any[]; getColor: (area: string) => string }) {
   const sorted = [...streaks].sort((a, b) => b.currentStreak - a.currentStreak).slice(0, 5);
 
@@ -258,14 +251,13 @@ function HealthMetricsPreview({ checkins }: { checkins: any[] }) {
   if (checkins.length === 0) {
     return (
       <div className="analytics-empty">
-        <p>Log health check-ins to see correlations.</p>
-        <a href="/health" className="btn btn-ghost">Go to Health {'->'}</a>
+        <p>No health metrics yet. Start by checking in on the Health page.</p>
       </div>
     );
   }
 
-  const avg = (values: (number | null)[], fallback = 0) => {
-    const presentValues = values.filter((value): value is number => value !== null);
+  const avg = (values: (number | null | undefined)[], fallback = 0) => {
+    const presentValues = values.filter((value): value is number => typeof value === 'number');
     return presentValues.length > 0
       ? Math.round(presentValues.reduce((sum, value) => sum + value, 0) / presentValues.length)
       : fallback;
