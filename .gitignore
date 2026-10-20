@@ -5,6 +5,9 @@ node_modules/
 # Rust build artifacts
 rust-core/target/
 
+# Server build output
+server/dist/
+
 # Vercel
 .vercel
 

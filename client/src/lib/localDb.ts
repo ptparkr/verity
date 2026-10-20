@@ -1,4 +1,4 @@
-const DB_NAME = 'karma-yoga-local-first';
+const DB_NAME = 'verity-local-first';
 const DB_VERSION = 1;
 
 export interface GuestIdentity {

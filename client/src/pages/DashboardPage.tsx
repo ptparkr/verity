@@ -3,11 +3,8 @@ import { useTargets } from '../hooks/useTargets';
 import { useAreaColors } from '../hooks/useAreaColors';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { useScoring, AREA_COLORS } from '../hooks/useScoring';
-import { StreakCard } from '../components/StreakCard';
 import { AreaChecklist } from '../components/dashboard/AreaChecklist';
 import { WeeklyHabitGrid } from '../components/dashboard/WeeklyHabitGrid';
-import { FocusAreaRing } from '../components/dashboard/FocusAreaRing';
-import { WeeklyReport } from '../components/analytics/WeeklyReport';
 import { TargetsPanel } from '../components/dashboard/TargetsPanel';
 import { DashboardShimmer } from '../components/Shimmer';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -19,12 +16,8 @@ export function DashboardPage() {
     streaks,
     weekly,
     consistency,
-    focusAnalytics,
-    focusError,
     loading,
     error,
-    totalCurrentStreak,
-    totalLongestStreak,
     toggleCheckin,
     refresh,
   } = useDashboard();
@@ -61,26 +54,26 @@ export function DashboardPage() {
         />
       )}
 
-      {focusError && !error && (
-        <StatusBanner tone="subtle" message={focusError} />
+      {/* ── Composite Score ── */}
+      {!scoringLoading && composite > 0 && (
+        <div className="stat-row" style={{ justifyContent: 'flex-start' }}>
+          <div
+            className="streak-card"
+            style={{
+              borderColor: '#00ffcc44',
+              background: '#00ffcc12',
+            }}
+          >
+            <div className="streak-card-icon" style={{ color: '#00ffcc' }}>V</div>
+            <div className="streak-card-content">
+              <div className="streak-card-value" style={{ color: '#00ffcc' }}>
+                {Math.round(composite)}<span className="streak-card-unit">/100</span>
+              </div>
+              <div className="streak-card-label">Composite Score</div>
+            </div>
+          </div>
+        </div>
       )}
-
-      {/* ── Stat Row: now includes Composite Score ── */}
-      <div className="stat-row">
-        <StreakCard icon="A" label="Best Active Streak" value={totalCurrentStreak} glow={totalCurrentStreak >= 7} />
-        <StreakCard icon="L" label="All-Time Longest"   value={totalLongestStreak} />
-        <StreakCard icon="H" label="Active Habits"      value={streaks.length} unit="habits" />
-        <StreakCard icon="C" label="30-Day Consistency"  value={consistency?.percentage || 0} unit="%" />
-        {!scoringLoading && composite > 0 && (
-          <StreakCard
-            icon="V"
-            label="Composite Score"
-            value={Math.round(composite)}
-            unit="/100"
-            glow={composite >= 70}
-          />
-        )}
-      </div>
 
       {/* ── Area Score Pills (per-area momentum) ── */}
       {!scoringLoading && areScores.length > 0 && (
@@ -128,11 +121,6 @@ export function DashboardPage() {
 
       <div className="section">
         <WeeklyHabitGrid weekly={weekly} todayStr={todayStr} onToggle={toggleCheckin} getColor={getColor} />
-      </div>
-
-      <div className="section dashboard-bottom-grid">
-        <FocusAreaRing focusAnalytics={focusAnalytics} getColor={getColor} />
-        {weeklyReport && <WeeklyReport report={weeklyReport} />}
       </div>
     </div>
   );

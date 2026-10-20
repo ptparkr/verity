@@ -5,11 +5,10 @@ const auth_1 = require("../auth");
 const db_1 = require("../db");
 const router = (0, express_1.Router)();
 const DEFAULT_AREAS = [
+    ['play', '#58a6ff'],
     ['health', '#3fb950'],
-    ['career', '#58a6ff'],
     ['mind', '#bc8cff'],
     ['social', '#f0883e'],
-    ['finance', '#39d2c0'],
 ];
 function ensureDefaultAreas(ownerId) {
     const db = (0, db_1.getDb)();

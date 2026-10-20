@@ -1,6 +1,6 @@
 import type { AppSettings } from '../types';
 
-const SETTINGS_KEY = 'karma_yoga_settings_v2';
+const SETTINGS_KEY = 'verity_settings_v2';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 

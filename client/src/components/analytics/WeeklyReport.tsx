@@ -8,8 +8,6 @@ interface Props {
 export function WeeklyReport({ report }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const hours = Math.floor(report.totalFocusMinutes / 60);
-  const minutes = report.totalFocusMinutes % 60;
 
   const formatDate = (str: string | undefined) => {
     if (!str) return '—';
@@ -36,16 +34,12 @@ export function WeeklyReport({ report }: Props) {
         </div>
         <div className="weekly-report-summary">
           <div className="weekly-report-stat">
-            <span className="weekly-report-stat-value">{hours}h {minutes}m</span>
-            <span className="weekly-report-stat-label">Focus</span>
-          </div>
-          <div className="weekly-report-stat">
             <span className="weekly-report-stat-value">{Math.round((report.habitCompletionRate || 0) * 100)}%</span>
             <span className="weekly-report-stat-label">Habits</span>
           </div>
           <div className="weekly-report-stat">
-            <span className="weekly-report-stat-value">{report.momentumScore}</span>
-            <span className="weekly-report-stat-label">Momentum</span>
+            <span className="weekly-report-stat-value">{report.sleepAvg?.toFixed(1) || '—'}h</span>
+            <span className="weekly-report-stat-label">Avg Sleep</span>
           </div>
         </div>
         <button className="weekly-report-toggle">
@@ -55,28 +49,6 @@ export function WeeklyReport({ report }: Props) {
 
       {expanded && (
         <div className="weekly-report-body">
-          <div className="weekly-report-section">
-            <h4>Focus</h4>
-            <div className="weekly-report-grid">
-              <div className="weekly-report-item">
-                <span className="weekly-report-item-value">{report.completedSessions}</span>
-                <span className="weekly-report-item-label">Sessions</span>
-              </div>
-              <div className="weekly-report-item">
-                <span className="weekly-report-item-value">{Math.round(report.completionRate * 100)}%</span>
-                <span className="weekly-report-item-label">Completion</span>
-              </div>
-              <div className="weekly-report-item">
-                <span className="weekly-report-item-value">{report.avgQuality?.toFixed(1) || '—'}</span>
-                <span className="weekly-report-item-label">Avg Quality</span>
-              </div>
-              <div className="weekly-report-item">
-                <span className="weekly-report-item-value">{report.topFocusArea || '—'}</span>
-                <span className="weekly-report-item-label">Top Area</span>
-              </div>
-            </div>
-          </div>
-
           <div className="weekly-report-section">
             <h4>Habits</h4>
             <div className="weekly-report-grid">
@@ -140,7 +112,6 @@ function generatePlainText(report: WeeklyReportData): string {
   const lines = [
     `📊 Verity Weekly Report — ${report.weekStart} to ${report.weekEnd}`,
     '',
-    `🎯 Focus: ${report.totalFocusMinutes} min, ${report.completedSessions} sessions, ${Math.round(report.completionRate * 100)}% completion`,
     `✅ Habits: ${Math.round(report.habitCompletionRate * 100)}% completion`,
     report.longestCurrentStreak ? `🔥 Streak: ${report.longestCurrentStreak.name} (${report.longestCurrentStreak.days} days)` : '',
     '',

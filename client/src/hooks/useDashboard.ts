@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
-import type { AreaSummary, ConsistencyData, FocusAnalytics, StreakData, WeeklyData } from '../types';
+import type { AreaSummary, ConsistencyData, StreakData, WeeklyData } from '../types';
 
 const DASHBOARD_CACHE_KEY = 'dashboard_cache';
 const DASHBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -60,14 +60,11 @@ export function useDashboard() {
   const [weekly, setWeekly] = useState<WeeklyData | null>(initialState.weekly);
   const [areas, setAreas] = useState<AreaSummary[]>(initialState.areas);
   const [consistency, setConsistency] = useState<ConsistencyData | null>(initialState.consistency);
-  const [focusAnalytics, setFocusAnalytics] = useState<FocusAnalytics | null>(null);
-  const [focusError, setFocusError] = useState<string | null>(null);
   const [loading, setLoading] = useState(initialState.loading);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (forceRefresh = false) => {
     setError(null);
-    setFocusError(null);
 
     // Only show loading if no cache available
     const cached = !forceRefresh ? getDashboardCached() : null;
@@ -99,26 +96,12 @@ export function useDashboard() {
     } catch (err) {
       console.error('Failed to load dashboard:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
-    }
-
-    try {
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      const focus = await api.getFocusAnalytics(todayStr, todayStr);
-      setFocusAnalytics(focus);
-    } catch (err) {
-      console.error('Failed to load focus analytics:', err);
-      setFocusError(err instanceof Error ? err.message : 'Failed to load focus analytics.');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  // Aggregated stats
-  const totalCurrentStreak = streaks.reduce((max, s) => Math.max(max, s.currentStreak), 0);
-  const totalLongestStreak = streaks.reduce((max, s) => Math.max(max, s.longestStreak), 0);
 
   const toggleCheckin = useCallback(async (habitId: string, date: string) => {
     try {
@@ -134,12 +117,8 @@ export function useDashboard() {
     weekly,
     areas,
     consistency,
-    focusAnalytics,
-    focusError,
     loading,
     error,
-    totalCurrentStreak,
-    totalLongestStreak,
     toggleCheckin,
     refresh: load,
   };

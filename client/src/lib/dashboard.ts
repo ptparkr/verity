@@ -1,25 +1,16 @@
-import type {
-  ConsistencyData,
-  FocusAnalytics,
-  FocusAreaSummary,
-  StreakData,
-  Target,
-  WeeklyReportPreview,
-} from '../types';
+import type { ConsistencyData, StreakData, Target } from '../types';
 
-export function buildTodayFocusSegments(byArea: FocusAreaSummary[]): FocusAreaSummary[] {
-  return [...byArea].sort((a, b) => b.total_min - a.total_min);
+export function buildTodayFocusSegments(): any[] {
+  return [];
 }
 
 export function buildWeeklyReportPreview(
   streaks: StreakData[],
   consistency: ConsistencyData | null,
   areas: Array<{ area: string; percentage: number }>,
-  focusAnalytics: FocusAnalytics | null,
-): WeeklyReportPreview {
-  const totalFocusMinutes = focusAnalytics?.weekDays.reduce((sum, day) => sum + day.minutes, 0) ?? 0;
-  const focusAreas = focusAnalytics?.byArea ?? [];
-  const topFocusArea = [...focusAreas].sort((a, b) => b.total_min - a.total_min)[0]?.area ?? null;
+): { totalFocusMinutes: number; topFocusArea: string | null; strongestHabit: string | null; currentBestStreak: number; consistencyPercentage: number; weakestArea: string | null; recommendations: string[] } {
+  const totalFocusMinutes = 0;
+  const topFocusArea = null;
   const strongestHabit = [...streaks].sort((a, b) => b.currentStreak - a.currentStreak)[0]?.name ?? null;
   const currentBestStreak = streaks.reduce((max, streak) => Math.max(max, streak.currentStreak), 0);
   const weakestArea = [...areas].sort((a, b) => a.percentage - b.percentage)[0]?.area ?? null;
@@ -33,16 +24,8 @@ export function buildWeeklyReportPreview(
     recommendations.push('You are close. Protect your easiest habits first and keep the loop tight.');
   }
 
-  if (totalFocusMinutes < 120) {
-    recommendations.push('Schedule one more deep-focus block today to keep momentum alive.');
-  }
-
   if (weakestArea) {
     recommendations.push(`Your weakest area is ${capitalize(weakestArea)}. Put one easy win there next.`);
-  }
-
-  if (topFocusArea) {
-    recommendations.push(`Most focus is landing in ${capitalize(topFocusArea)}. Rebalance only if that is not intentional.`);
   }
 
   while (recommendations.length < 3) {

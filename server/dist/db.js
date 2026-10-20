@@ -29,19 +29,19 @@ function resolveSqlJsLocateFile(file) {
     }
 }
 function resolveDbPath() {
-    if (process.env.VERITY_DB_PATH || process.env.KARMA_DB_PATH) {
-        return (process.env.VERITY_DB_PATH || process.env.KARMA_DB_PATH);
+    if (process.env.VERITY_DB_PATH) {
+        return process.env.VERITY_DB_PATH;
     }
     const cwd = process.cwd();
     const workspaceRoot = path_1.default.basename(cwd).toLowerCase() === 'server'
         ? path_1.default.resolve(cwd, '..')
         : cwd;
-    // Use VERITY_DB_FILE if provided, or default to verity.db (or karma-yoga.db if legacy file already exists)
-    let dbFileName = process.env.VERITY_DB_FILE || process.env.KARMA_DB_FILE;
+    // Use VERITY_DB_FILE if provided, or default to verity.db
+    let dbFileName = process.env.VERITY_DB_FILE;
     if (!dbFileName) {
         dbFileName = fs_1.default.existsSync(path_1.default.join(workspaceRoot, 'verity.db'))
             ? 'verity.db'
-            : (fs_1.default.existsSync(path_1.default.join(workspaceRoot, 'karma-yoga.db')) ? 'karma-yoga.db' : 'verity.db');
+            : 'verity.db';
     }
     if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
         const tempDir = process.env.TMPDIR || '/tmp';
@@ -105,21 +105,6 @@ async function initDb() {
     )
   `);
     addColumnIfMissing('checkins', "owner_id TEXT NOT NULL DEFAULT 'guest_legacy'");
-    db.run(`
-    CREATE TABLE IF NOT EXISTS pomodoro_sessions (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      focus_min   INTEGER NOT NULL,
-      break_min   INTEGER NOT NULL,
-      completed   INTEGER NOT NULL DEFAULT 0,
-      area        TEXT NOT NULL DEFAULT 'other',
-      intention  TEXT,
-      quality    INTEGER,
-      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-    addColumnIfMissing('pomodoro_sessions', 'intention TEXT');
-    addColumnIfMissing('pomodoro_sessions', 'quality INTEGER');
-    addColumnIfMissing('pomodoro_sessions', "owner_id TEXT NOT NULL DEFAULT 'guest_legacy'");
     ensureOwnerScopedTable('areas', `CREATE TABLE areas (
       owner_id TEXT NOT NULL,
       name  TEXT NOT NULL,
@@ -133,11 +118,10 @@ async function initDb() {
     areaCount.free();
     if (count === 0) {
         const defaults = [
+            ['play', '#58a6ff'],
             ['health', '#3fb950'],
-            ['career', '#58a6ff'],
             ['mind', '#bc8cff'],
             ['social', '#f0883e'],
-            ['finance', '#39d2c0'],
         ];
         for (const [name, color] of defaults) {
             db.run("INSERT INTO areas (owner_id, name, color) VALUES ('guest_legacy', ?, ?)", [name, color]);
@@ -173,37 +157,6 @@ async function initDb() {
     )
   `);
     addColumnIfMissing('bio_markers', "owner_id TEXT NOT NULL DEFAULT 'guest_legacy'");
-    // Wheel of Life tables
-    ensureOwnerScopedTable('wheel_axes', `CREATE TABLE wheel_axes (
-      owner_id      TEXT NOT NULL,
-      id            TEXT NOT NULL,
-      current_score INTEGER NOT NULL DEFAULT 5,
-      target_score  INTEGER NOT NULL DEFAULT 8,
-      PRIMARY KEY(owner_id, id)
-    )`, "INSERT INTO wheel_axes (owner_id, id, current_score, target_score) SELECT 'guest_legacy', id, current_score, target_score FROM wheel_axes_legacy");
-    db.run(`
-    CREATE TABLE IF NOT EXISTS wheel_snapshots (
-      id     TEXT PRIMARY KEY,
-      date   TEXT NOT NULL,
-      scores TEXT NOT NULL
-    )
-  `);
-    addColumnIfMissing('wheel_snapshots', "owner_id TEXT NOT NULL DEFAULT 'guest_legacy'");
-    // Seed default wheel axes if empty
-    const wheelCount = db.prepare("SELECT COUNT(*) as c FROM wheel_axes WHERE owner_id = 'guest_legacy'");
-    wheelCount.step();
-    const wheelAxisCount = wheelCount.getAsObject().c;
-    wheelCount.free();
-    if (wheelAxisCount === 0) {
-        const defaultAxes = [
-            'body', 'mind', 'soul', 'growth', 'money',
-            'mission', 'romance', 'family', 'friends', 'joy',
-        ];
-        for (const axisId of defaultAxes) {
-            db.run("INSERT INTO wheel_axes (owner_id, id, current_score, target_score) VALUES ('guest_legacy', ?, 5, 8)", [axisId]);
-        }
-        saveDb();
-    }
     return db;
 }
 function getDb() {

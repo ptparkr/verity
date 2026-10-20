@@ -1,22 +1,10 @@
 export type Timeframe = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export type FocusArea =
-  | 'body'
-  | 'mind'
-  | 'soul'
-  | 'growth'
-  | 'money'
-  | 'mission'
-  | 'romance'
-  | 'family'
-  | 'friends'
-  | 'joy'
+  | 'play'
   | 'health'
-  | 'learning'
+  | 'mind'
   | 'social'
-  | 'finance'
-  | 'recovery'
-  | 'other'
   | string;
 
 export interface Habit {
@@ -61,21 +49,6 @@ export interface AreaColor {
   color: string;
 }
 
-export type FocusQuality = 1 | 2 | 3 | 4 | 5;
-
-export interface FocusSession {
-  id: string;
-  startTime: string;
-  endTime: string;
-  durationMinutes: number;
-  plannedDurationMinutes: number;
-  area: string;
-  intention: string;
-  quality: FocusQuality | null;
-  completed: boolean;
-  tags: string[];
-}
-
 export interface StreakData {
   habitId: string;
   name: string;
@@ -118,32 +91,6 @@ export interface ConsistencyData {
   missed: number;
 }
 
-export interface FocusAreaSummary {
-  area: string;
-  total_min: number;
-}
-
-export interface FocusDay {
-  date: string;
-  minutes: number;
-}
-
-export interface FocusAnalytics {
-  byArea: FocusAreaSummary[];
-  weekDays: FocusDay[];
-}
-
-export interface PomodoroSession {
-  id?: number;
-  focus_min: number;
-  break_min: number;
-  completed: number | boolean;
-  area: string;
-  intention?: string;
-  quality?: number | null;
-  created_at: string;
-}
-
 export interface Target {
   id: string;
   title: string;
@@ -163,16 +110,6 @@ export interface TargetDraft {
   description?: string;
   color: string;
   isPrimary: boolean;
-}
-
-export interface WeeklyReportPreview {
-  totalFocusMinutes: number;
-  topFocusArea: string | null;
-  strongestHabit: string | null;
-  currentBestStreak: number;
-  consistencyPercentage: number;
-  weakestArea: string | null;
-  recommendations: string[];
 }
 
 // ─── Health Layer Types ───────────────────────────────────────

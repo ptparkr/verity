@@ -13,7 +13,7 @@
 /// (server/routes/health.ts): The Longevity Score measures physiological
 /// biomarkers (HRV, HR, sleep, steps). This area score measures daily
 /// behavioral habit-completion momentum. They are complementary, not redundant.
-use crate::types::{HabitEntryInput, HabitInput, ScoringRequest, ScoringResponse, AreaScorePoint, CompositePoint, ProjectionPoint};
+use crate::types::{ScoringRequest, ScoringResponse, AreaScorePoint, CompositePoint, ProjectionPoint};
 use std::collections::{BTreeMap, HashMap};
 
 /// EMA smoothing factor. Tune this to change how much today's check-in matters.

@@ -2,10 +2,6 @@ import { useMemo, useState } from 'react';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { useScoring } from '../hooks/useScoring';
 import { CompositeGraph } from '../components/analytics/CompositeGraph';
-import { MomentumScore } from '../components/analytics/MomentumScore';
-import { PeakHoursChart } from '../components/analytics/PeakHoursChart';
-import { AreaBalance } from '../components/analytics/AreaBalance';
-import { SleepFocusCorrelation } from '../components/analytics/SleepFocusCorrelation';
 import { HabitAreaAnalytics } from '../components/analytics/HabitAreaAnalytics';
 import { HealthCorrelations } from '../components/analytics/HealthCorrelations';
 import { WeeklyReport } from '../components/analytics/WeeklyReport';
@@ -14,11 +10,10 @@ import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { StatusBanner } from '../components/ui/StatusBanner';
 import { useAreaColors } from '../hooks/useAreaColors';
 
-type TabId = 'overview' | 'focus' | 'habits' | 'health';
+type TabId = 'overview' | 'habits' | 'health';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
-  { id: 'focus', label: 'Focus' },
   { id: 'habits', label: 'Habits' },
   { id: 'health', label: 'Health' },
 ];
@@ -27,18 +22,12 @@ export function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const { getColor } = useAreaColors();
   const {
-    momentum,
-    peakHours,
-    areaBalance,
     weeklyReport,
-    sessions,
     habitAreas,
     areaSummaries,
     consistency,
     streaks,
     healthCheckins,
-    sleepFocusData,
-    sleepFocusRegression,
     loading: analyticsLoading,
     error,
     refresh,
@@ -54,19 +43,14 @@ export function AnalyticsPage() {
   const getAreaColor = analyticsGetColor || getColor;
 
   const overviewCards = useMemo(() => {
-    const avgMomentum = momentum.length > 0
-      ? Math.round(momentum.reduce((sum, point) => sum + point.score, 0) / momentum.length)
-      : 0;
-
     const consistencyPct = consistency?.percentage || 0;
     const roundedComposite = Math.round(composite);
 
     return [
       { label: 'Composite Score', value: roundedComposite, unit: '/100', color: '#f0f6fc' },
-      { label: 'Momentum', value: avgMomentum, unit: '/100', color: '#3b8bd4' },
       { label: 'Consistency', value: consistencyPct, unit: '%', color: '#1D9E75' },
     ];
-  }, [momentum, consistency, composite]);
+  }, [consistency, composite]);
 
   const loading = analyticsLoading && scoringLoading;
 
@@ -122,41 +106,8 @@ export function AnalyticsPage() {
             </div>
 
             <div className="analytics-section">
-              <h3 className="analytics-section-title">Momentum Trend</h3>
-              <MomentumScore data={momentum} />
-            </div>
-
-            <div className="analytics-section">
               <h3 className="analytics-section-title">This Week&apos;s Report</h3>
               {weeklyReport && <WeeklyReport report={weeklyReport} />}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'focus' && (
-          <div className="analytics-focus">
-            <div className="analytics-section">
-              <h3 className="analytics-section-title">Peak Hours</h3>
-              <PeakHoursChart grid={peakHours} />
-            </div>
-
-            <div className="analytics-section">
-              <h3 className="analytics-section-title">Area Balance (8 weeks)</h3>
-              <AreaBalance data={areaBalance} areas={habitAreas} getColor={getAreaColor} />
-            </div>
-
-            <div className="analytics-section">
-              <h3 className="analytics-section-title">Sleep x Focus Correlation</h3>
-              <SleepFocusCorrelation
-                data={sleepFocusData}
-                regression={sleepFocusRegression}
-                hasData={sleepFocusData.length >= 2}
-              />
-            </div>
-
-            <div className="analytics-section">
-              <h3 className="analytics-section-title">Focus Sessions</h3>
-              <FocusSessionsList sessions={sessions} />
             </div>
           </div>
         )}
@@ -184,7 +135,7 @@ export function AnalyticsPage() {
                   <HealthMetricsPreview checkins={healthCheckins} />
                   <div className="analytics-section analytics-section-spaced">
                     <h3 className="analytics-section-title">Health Correlations</h3>
-                    <HealthCorrelations checkins={healthCheckins} sessions={sessions} />
+                    <HealthCorrelations checkins={healthCheckins} />
                   </div>
                 </>
               ) : (
@@ -197,34 +148,6 @@ export function AnalyticsPage() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function FocusSessionsList({ sessions }: { sessions: any[] }) {
-  if (!sessions || sessions.length === 0) {
-    return (
-      <div className="analytics-empty">
-        <p>No focus sessions yet. Start a pomodoro session.</p>
-        <a href="/pomodoro" className="btn btn-ghost">Go to Pomodoro {'->'}</a>
-      </div>
-    );
-  }
-
-  return (
-    <div className="focus-sessions-list">
-      {sessions.slice(0, 10).map((session, index) => (
-        <div key={session.id || index} className="focus-session-item">
-          <span className="focus-session-area">{session.area || 'other'}</span>
-          <span className="focus-session-duration">{session.focus_min || 0}m</span>
-          <span className="focus-session-date">
-            {session.created_at ? new Date(session.created_at).toLocaleDateString() : 'N/A'}
-          </span>
-        </div>
-      ))}
-      {sessions.length > 10 && (
-        <div className="focus-sessions-more">+{sessions.length - 10} more sessions</div>
-      )}
     </div>
   );
 }

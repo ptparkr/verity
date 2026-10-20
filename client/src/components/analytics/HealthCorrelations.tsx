@@ -1,10 +1,9 @@
 import type { EnergyMoodPoint } from '../../lib/analytics';
 import { energyMoodCorrelation } from '../../lib/analytics';
-import type { HealthCheckin, PomodoroSession } from '../../types';
+import type { HealthCheckin } from '../../types';
 
 interface Props {
   checkins: HealthCheckin[];
-  sessions?: PomodoroSession[];
 }
 
 export function HealthCorrelations({ checkins }: Props) {

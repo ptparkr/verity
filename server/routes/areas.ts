@@ -4,11 +4,10 @@ import { getDb, saveDb } from '../db';
 
 const router = Router();
 const DEFAULT_AREAS = [
+  ['play', '#58a6ff'],
   ['health', '#3fb950'],
-  ['career', '#58a6ff'],
   ['mind', '#bc8cff'],
   ['social', '#f0883e'],
-  ['finance', '#39d2c0'],
 ] as const;
 
 function ensureDefaultAreas(ownerId: string) {

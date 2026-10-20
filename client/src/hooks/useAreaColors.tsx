@@ -54,10 +54,10 @@ export function AreaColorsProvider({ children }: { children: ReactNode }) {
   const getColor = useCallback((area: string) => {
     if (colors[area]) return colors[area];
     const defaultColor = [
-      ['body', '#00ffcc'], ['mind', '#3b82f6'], ['soul', '#8b5cf6'],
-      ['growth', '#f59e0b'], ['money', '#10b981'], ['mission', '#ef4444'],
-      ['romance', '#ec4899'], ['family', '#f97316'], ['friends', '#84cc16'],
-      ['joy', '#fbbf24']
+      ['play', '#58a6ff'],
+      ['health', '#3fb950'],
+      ['mind', '#bc8cff'],
+      ['social', '#f0883e'],
     ].find(([name]) => name === area.toLowerCase());
     return defaultColor ? defaultColor[1] : FALLBACK;
   }, [colors]);
@@ -82,16 +82,10 @@ export function AreaColorsProvider({ children }: { children: ReactNode }) {
     if (hasLoaded || areas.length > 0) return;
 
     const defaults = [
-      ['body', '#00ffcc'],
-      ['mind', '#3b82f6'],
-      ['soul', '#8b5cf6'],
-      ['growth', '#f59e0b'],
-      ['money', '#10b981'],
-      ['mission', '#ef4444'],
-      ['romance', '#ec4899'],
-      ['family', '#f97316'],
-      ['friends', '#84cc16'],
-      ['joy', '#fbbf24'],
+      ['play', '#58a6ff'],
+      ['health', '#3fb950'],
+      ['mind', '#bc8cff'],
+      ['social', '#f0883e'],
     ] as const;
 
     setAreas(defaults.map(([name]) => name));

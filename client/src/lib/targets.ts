@@ -1,7 +1,7 @@
 import { storageGet, storageSet } from './storage';
 import type { Target, TargetDraft } from '../types';
 
-const TARGETS_KEY = 'karma-yoga.targets.v1';
+const TARGETS_KEY = 'verity.targets.v1';
 const CURRENT_VERSION = 2;
 
 export function getStoredTargets(): Target[] {

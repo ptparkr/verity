@@ -73,6 +73,7 @@ fn default_completed() -> bool {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct WheelAxisInput {
     pub id: String,
     #[serde(default)]
@@ -113,6 +114,7 @@ fn default_weeks() -> usize {
 /// Re-uses HabitInput + HabitEntryInput from the analytics request.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ScoringRequest {
     pub habits: Vec<HabitInput>,
     pub habit_entries: Vec<HabitEntryInput>,

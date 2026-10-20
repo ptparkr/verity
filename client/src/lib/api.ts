@@ -3,12 +3,9 @@ import type {
   AreaSummary,
   ConsistencyData,
   DeleteResponse,
-  FocusAnalytics,
-  FocusQuality,
   Habit,
   HabitStreak,
   LeaderboardEntry,
-  PomodoroSession,
   StreakData,
   ToggleCheckinResponse,
   WeeklyData,
@@ -23,10 +20,9 @@ const BASE = '/api';
 const ACTIVE_IDENTITY_META_KEY = 'activeIdentityId';
 
 /**
- * IndexedDB name. Supports both legacy ('karma-yoga-local-first') and
- * new ('verity-local-first') databases transparently for backward compat.
+ * IndexedDB name.
  */
-const INDEXED_DB_NAMES = ['verity-local-first', 'karma-yoga-local-first'];
+const INDEXED_DB_NAMES = ['verity-local-first'];
 
 let activeGuestId: string | null = null;
 
@@ -72,11 +68,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
-      // Send both headers: X-Verity-Guest-ID (new) and X-Karma-Guest-ID (legacy).
-      // Server accepts either. This ensures zero downtime during migration.
+      // Send X-Verity-Guest-ID header
       ...(activeGuestId ? {
         'X-Verity-Guest-ID': activeGuestId,
-        'X-Karma-Guest-ID':  activeGuestId,
       } : {}),
       ...(options?.headers ?? {}),
     },
@@ -134,21 +128,6 @@ export const api = {
   getWeekly: () => request<WeeklyData>('/dashboard/weekly'),
   getAreas: () => request<AreaSummary[]>('/dashboard/areas'),
   getConsistency: () => request<ConsistencyData>('/dashboard/consistency'),
-
-  // Pomodoro
-  logSession: (focus_min: number, break_min: number, completed: boolean, area?: string, intention?: string, quality?: FocusQuality) =>
-    request<{ success: true }>('/pomodoro', { method: 'POST', body: JSON.stringify({ focus_min, break_min, completed, area, intention, quality }) }),
-  getTodaySessions: () => request<PomodoroSession[]>('/pomodoro/today'),
-  getRecentSessions: (days = 7) => request<PomodoroSession[]>(`/pomodoro/recent?days=${days}`),
-  getFocusAnalytics: (startDate?: string, endDate?: string) => {
-    const params = new URLSearchParams();
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return request<FocusAnalytics>(`/pomodoro/analytics${query}`);
-  },
-  runRustAnalytics: (payload: unknown) =>
-    request<unknown>('/utils/rust-analytics', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Areas
   getAreaColors: () => request<AreaColor[]>('/areas'),
