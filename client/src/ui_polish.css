@@ -555,20 +555,67 @@
     pointer-events: auto !important;
   }
 
+  /* Desktop collapsed rail must not shrink the mobile drawer (72px leak). */
+  .sidebar.collapsed {
+    width: min(300px, 86vw) !important;
+    min-width: 0 !important;
+    padding: 18px 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .sidebar.collapsed.mobile-open {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .sidebar .sidebar-toggle-btn {
+    display: none !important;
+  }
+
+  .sidebar.collapsed .brand-text,
   .sidebar.mobile-open .brand-text,
+  .sidebar.collapsed .nav-label,
   .sidebar.mobile-open .nav-label,
-  .sidebar.mobile-open .nav-shortcut,
-  .sidebar.mobile-open .sidebar-user-info {
+  .sidebar.collapsed .nav-shortcut,
+  .sidebar.mobile-open .nav-shortcut {
     display: flex !important;
   }
 
+  .sidebar.collapsed .sidebar-user-info,
+  .sidebar.mobile-open .sidebar-user-info {
+    display: none !important;
+  }
+
+  .sidebar.collapsed .sidebar-brand,
+  .sidebar.mobile-open .sidebar-brand {
+    justify-content: flex-start;
+    padding: 0 18px;
+  }
+
+  .sidebar.collapsed .sidebar-brand-link,
   .sidebar.mobile-open .sidebar-brand-link {
     display: flex !important;
   }
 
+  .sidebar.collapsed .nav-link,
   .sidebar.mobile-open .nav-link {
     justify-content: flex-start !important;
     padding: 0.65rem 0.8rem !important;
+  }
+
+  .sidebar.collapsed .sidebar-user-card,
+  .sidebar.mobile-open .sidebar-user-card {
+    justify-content: center;
+    padding: 0.55rem 0.65rem;
+    border-color: rgba(255, 255, 255, 0.06);
+    background: rgba(14, 23, 40, 0.45);
+  }
+
+  .is-mobile-menu-open .topbar-mobile-burger,
+  .is-mobile-menu-open .topbar-username {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .mobile-drawer-backdrop {
