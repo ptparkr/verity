@@ -1,9 +1,9 @@
-:root {
+﻿:root {
   color-scheme: dark;
 
   /* Typography */
-  --font-sans: "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --font-sans: "Geist", "SF Pro Text", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
   --type-0: 0.75rem;
   --type-1: 0.8125rem;
   --type-2: 0.875rem;
@@ -2633,3 +2633,5 @@ html[data-reduced-motion='true'] *::after {
   transition-duration: 0.01ms !important;
   transition-delay: 0s !important;
 }
+
+

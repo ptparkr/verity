@@ -6,6 +6,7 @@ import { AuthProvider } from './lib/auth';
 import './index.css';
 import './macos.css';
 import './ui_polish.css';
+import './typography.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

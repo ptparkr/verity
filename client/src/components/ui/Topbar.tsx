@@ -53,12 +53,6 @@ export function Topbar({
           />
         )}
 
-        <div className="window-controls" aria-hidden="true">
-          <span className="window-dot close" />
-          <span className="window-dot minimize" />
-          <span className="window-dot zoom" />
-        </div>
-
         <div className="topbar-title-group">
           <span className="topbar-kicker">Verity Workspace</span>
           <h1 className="topbar-title">{pageTitle}</h1>
