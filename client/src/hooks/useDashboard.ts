@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import type { AreaSummary, ConsistencyData, StreakData, WeeklyData } from '../types';
 
-const DASHBOARD_CACHE_KEY = 'dashboard_cache';
 const DASHBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 interface DashboardCache {
@@ -13,9 +13,13 @@ interface DashboardCache {
   timestamp: number;
 }
 
-function getDashboardCached(): DashboardCache | null {
+function getCacheKey(ownerId: string): string {
+  return `verity_dashboard_cache_${ownerId}`;
+}
+
+function getDashboardCached(ownerId: string): DashboardCache | null {
   try {
-    const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+    const raw = localStorage.getItem(getCacheKey(ownerId));
     if (!raw) return null;
     const cached = JSON.parse(raw) as DashboardCache;
     if (Date.now() - cached.timestamp > DASHBOARD_CACHE_TTL) return null;
@@ -25,49 +29,30 @@ function getDashboardCached(): DashboardCache | null {
   }
 }
 
-function setDashboardCached(data: DashboardCache): void {
+function setDashboardCached(ownerId: string, data: DashboardCache): void {
   try {
-    localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(data));
+    localStorage.setItem(getCacheKey(ownerId), JSON.stringify(data));
   } catch (err) {
     console.warn('Failed to cache dashboard data:', err);
   }
 }
 
-const getInitialState = () => {
-  const cached = getDashboardCached();
-  if (cached) {
-    return {
-      streaks: cached.streaks,
-      weekly: cached.weekly,
-      areas: cached.areas,
-      consistency: cached.consistency,
-      loading: false,
-    };
-  }
-  return {
-    streaks: [] as StreakData[],
-    weekly: null as WeeklyData | null,
-    areas: [] as AreaSummary[],
-    consistency: null as ConsistencyData | null,
-    loading: true,
-  };
-};
-
-const initialState = getInitialState();
-
 export function useDashboard() {
-  const [streaks, setStreaks] = useState<StreakData[]>(initialState.streaks);
-  const [weekly, setWeekly] = useState<WeeklyData | null>(initialState.weekly);
-  const [areas, setAreas] = useState<AreaSummary[]>(initialState.areas);
-  const [consistency, setConsistency] = useState<ConsistencyData | null>(initialState.consistency);
-  const [loading, setLoading] = useState(initialState.loading);
+  const { identity } = useAuth();
+  const ownerId = identity?.id || 'default';
+
+  const [streaks, setStreaks] = useState<StreakData[]>(() => getDashboardCached(ownerId)?.streaks || []);
+  const [weekly, setWeekly] = useState<WeeklyData | null>(() => getDashboardCached(ownerId)?.weekly || null);
+  const [areas, setAreas] = useState<AreaSummary[]>(() => getDashboardCached(ownerId)?.areas || []);
+  const [consistency, setConsistency] = useState<ConsistencyData | null>(() => getDashboardCached(ownerId)?.consistency || null);
+  const [loading, setLoading] = useState(() => !getDashboardCached(ownerId));
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (forceRefresh = false) => {
     setError(null);
 
     // Only show loading if no cache available
-    const cached = !forceRefresh ? getDashboardCached() : null;
+    const cached = !forceRefresh ? getDashboardCached(ownerId) : null;
     if (!cached) {
       setLoading(true);
     }
@@ -85,8 +70,8 @@ export function useDashboard() {
       setAreas(a);
       setConsistency(c);
       
-      // Cache the data
-      setDashboardCached({
+      // Cache the data scoped to this owner
+      setDashboardCached(ownerId, {
         streaks: s,
         weekly: w,
         areas: a,
@@ -99,17 +84,25 @@ export function useDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ownerId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const toggleCheckin = useCallback(async (habitId: string, date: string) => {
     try {
       await api.toggleCheckin(habitId, date);
-      load(true);
+      // Reload dashboard data
+      await load(true);
     } catch (err) {
       console.error('Failed to toggle checkin:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update check-in.');
     }
+  }, [load]);
+
+  const refresh = useCallback(async () => {
+    await load(true);
   }, [load]);
 
   return {
@@ -120,6 +113,6 @@ export function useDashboard() {
     loading,
     error,
     toggleCheckin,
-    refresh: load,
+    refresh,
   };
 }

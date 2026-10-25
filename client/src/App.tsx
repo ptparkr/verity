@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
+import { Topbar } from './components/ui/Topbar';
 import { CommandPalette } from './components/ui/CommandPalette';
 import { GuestEntry } from './components/auth/GuestEntry';
 import { AreaColorsProvider } from './hooks/useAreaColors';
@@ -15,15 +16,22 @@ import { SettingsPage } from './pages/SettingsPage';
 
 export function App() {
   const { identity, isBooting } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = loadSettings().preferences.reducedMotion ? 'true' : 'false';
   }, []);
 
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => storageGetString('verity_sidebar_collapsed', 'false') === 'true'
   );
+
+  // Close mobile drawer when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -33,6 +41,7 @@ export function App() {
       }
       if (event.key === 'Escape') {
         setIsCommandPaletteOpen(false);
+        setIsMobileMenuOpen(false);
       }
     };
 
@@ -60,9 +69,20 @@ export function App() {
 
   return (
     <AreaColorsProvider>
-      <div className={`app-layout ${isSidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}>
-        <Sidebar isCollapsed={isSidebarCollapsed} setIsCollapsed={handleSidebarChange} />
+      <div className={`app-layout ${isSidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${isMobileMenuOpen ? 'is-mobile-menu-open' : ''}`}>
+        <Sidebar
+          isCollapsed={isSidebarCollapsed}
+          setIsCollapsed={handleSidebarChange}
+          isMobileOpen={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
+        />
         <div className="workspace-shell">
+          <Topbar
+            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+            onToggleSidebar={() => handleSidebarChange(!isSidebarCollapsed)}
+            onToggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)}
+            isSidebarCollapsed={isSidebarCollapsed}
+          />
           <main className="app-main">
             <Routes>
               <Route path="/" element={<DashboardPage />} />

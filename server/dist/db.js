@@ -36,12 +36,18 @@ function resolveDbPath() {
     const workspaceRoot = path_1.default.basename(cwd).toLowerCase() === 'server'
         ? path_1.default.resolve(cwd, '..')
         : cwd;
-    // Use VERITY_DB_FILE if provided, or default to verity.db
+    // Use VERITY_DB_FILE if provided, or default to verity.db with karma-yoga.db fallback
     let dbFileName = process.env.VERITY_DB_FILE;
     if (!dbFileName) {
-        dbFileName = fs_1.default.existsSync(path_1.default.join(workspaceRoot, 'verity.db'))
-            ? 'verity.db'
-            : 'verity.db';
+        if (fs_1.default.existsSync(path_1.default.join(workspaceRoot, 'verity.db'))) {
+            dbFileName = 'verity.db';
+        }
+        else if (fs_1.default.existsSync(path_1.default.join(workspaceRoot, 'karma-yoga.db'))) {
+            dbFileName = 'karma-yoga.db';
+        }
+        else {
+            dbFileName = 'verity.db';
+        }
     }
     if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
         const tempDir = process.env.TMPDIR || '/tmp';

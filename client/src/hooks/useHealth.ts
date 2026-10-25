@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
+import { loadSettings } from '../lib/settings';
 import type { HealthCheckin, LongevityScore, HealthTrend, BiologicalMarker, TodayCheckinStatus } from '../types';
 
 interface HealthTrends {
@@ -38,18 +39,9 @@ export function useHealth() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      let age = 25;
-      const settingsRaw = localStorage.getItem('karma_yoga_settings');
-      if (settingsRaw) {
-        try {
-          const settings = JSON.parse(settingsRaw);
-          if (settings.dateOfBirth) {
-            age = getAgeFromDOB(settings.dateOfBirth);
-          }
-        } catch(e) {
-          console.warn('Failed to parse settings from localStorage:', e);
-        }
-      }
+      const settings = loadSettings();
+      const dob = settings.profile.dateOfBirth;
+      const age = dob ? getAgeFromDOB(dob) : 25;
 
       const [status, lon, tr, mk, ch] = await Promise.all([
         api.getTodayCheckin(),
@@ -76,7 +68,7 @@ export function useHealth() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const submitCheckin = useCallback(async (data: Omit<HealthCheckin, 'id' | 'date'>) => {
     const checkin = await api.createCheckin({ ...data, date: new Date().toISOString().slice(0, 10) });

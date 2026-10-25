@@ -27,6 +27,8 @@ export interface AreaCurrentScore {
 }
 
 export interface ScoringState {
+  areaScores: AreaCurrentScore[];
+  /** Legacy alias for backward compatibility */
   areScores: AreaCurrentScore[];
   composite: number;
   series: CompositeScoreSeries | null;
@@ -51,7 +53,7 @@ export const AREA_COLORS: Record<LifeArea, string> = {
 };
 
 export function useScoring(): ScoringState & { refresh: () => void } {
-  const [areScores, setAreaScores] = useState<AreaCurrentScore[]>([]);
+  const [areaScores, setAreaScores] = useState<AreaCurrentScore[]>([]);
   const [composite, setComposite] = useState(0);
   const [series, setSeries] = useState<CompositeScoreSeries | null>(null);
   const [zoomedView, setZoomedView] = useState<ZoomedView | null>(null);
@@ -114,5 +116,14 @@ export function useScoring(): ScoringState & { refresh: () => void } {
 
   useEffect(() => { void compute(); }, [compute]);
 
-  return { areScores, composite, series, zoomedView, loading, error, refresh: compute };
+  return {
+    areaScores,
+    areScores: areaScores,
+    composite,
+    series,
+    zoomedView,
+    loading,
+    error,
+    refresh: compute,
+  };
 }

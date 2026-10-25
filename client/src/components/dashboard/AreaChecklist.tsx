@@ -144,14 +144,28 @@ export function AreaChecklist({ weekly, todayStr, onToggle, areaScores = {} }: P
                       } : undefined}
                     >
                       <span
-                        className="quick-check-box"
+                        className={`quick-check-box ${checked ? 'is-checked' : ''}`}
                         style={checked ? {
                           background: color,
                           borderColor: color,
-                          boxShadow: `0 0 14px ${color}55`,
+                          boxShadow: `0 0 14px ${color}66`,
                         } : undefined}
                       >
-                        {checked ? '✓' : ''}
+                        {checked && (
+                          <svg
+                            className="quick-check-icon"
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#050814"
+                            strokeWidth="3.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
                       </span>
                       <span className="quick-check-label">{row.name}</span>
                     </button>

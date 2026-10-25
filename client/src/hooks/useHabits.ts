@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../lib/api';
+import { api, HabitWithCheckins } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { today } from '../lib/dateUtils';
 import type { Habit, HabitStreak, LeaderboardEntry } from '../types';
 
@@ -12,17 +13,20 @@ function parseTargetDays(habit: Habit): number[] {
   }
 }
 
-const CACHE_KEY = 'habits_cache';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 interface CachedData {
-  habits: { id: string; name: string; area: string; target_days: string; checkins: string[] }[];
+  habits: HabitWithCheckins[];
   timestamp: number;
 }
 
-function getCached(): CachedData | null {
+function getCacheKey(ownerId: string): string {
+  return `verity_habits_cache_${ownerId}`;
+}
+
+function getCached(ownerId: string): CachedData | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(getCacheKey(ownerId));
     if (!raw) return null;
     const cached = JSON.parse(raw) as CachedData;
     if (Date.now() - cached.timestamp > CACHE_TTL) return null;
@@ -32,23 +36,26 @@ function getCached(): CachedData | null {
   }
 }
 
-function setCached(data: CachedData): void {
+function setCached(ownerId: string, data: CachedData): void {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    localStorage.setItem(getCacheKey(ownerId), JSON.stringify(data));
   } catch (err) {
     console.warn('Failed to cache habits data:', err);
   }
 }
 
-function clearCached(): void {
+function clearCached(ownerId: string): void {
   try {
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(getCacheKey(ownerId));
   } catch (err) {
     console.warn('Failed to clear habits cache:', err);
   }
 }
 
 export function useHabits() {
+  const { identity } = useAuth();
+  const ownerId = identity?.id || 'default';
+
   const [habits, setHabits] = useState<Habit[]>([]);
   const [checkins, setCheckins] = useState<Record<string, Set<string>>>({});
   const [streaks, setStreaks] = useState<Record<string, HabitStreak>>({});
@@ -62,16 +69,16 @@ export function useHabits() {
 
     try {
       // Try cache first unless force refresh
-      const cached = !forceRefresh ? getCached() : null;
+      const cached = !forceRefresh ? getCached(ownerId) : null;
       
-      let data: { id: string; name: string; area: string; target_days: string; checkins: string[] }[];
+      let data: HabitWithCheckins[];
       
       if (cached) {
         data = cached.habits;
       } else {
         // Use batch endpoint - single API call!
         data = await api.getAllHabitsWithCheckins();
-        setCached({ habits: data, timestamp: Date.now() });
+        setCached(ownerId, { habits: data, timestamp: Date.now() });
       }
 
       // Convert to Habit format (add required fields with defaults)
@@ -94,38 +101,42 @@ export function useHabits() {
       // Calculate streaks from checkins locally (avoid N+1 API calls)
       const streakData: Record<string, HabitStreak> = {};
       for (const h of data) {
-        const dates = h.checkins.sort();
+        const dates = [...h.checkins].sort();
         if (dates.length === 0) {
           streakData[h.id] = { habitId: h.id, currentStreak: 0, longestStreak: 0, totalCheckins: 0, lastCheckinDate: null };
           continue;
         }
-        
-        // Calculate current streak
+
+        // Current streak
         let currentStreak = 0;
-        const todayStr = today();
+        const t = today();
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        
-        let cursor = dates.includes(todayStr) ? todayStr : (dates.includes(yesterdayStr) ? yesterdayStr : '');
-        while (cursor && dates.includes(cursor)) {
+        const yStr = yesterday.toISOString().slice(0, 10);
+        let cursorDate = dates.includes(t) ? t : (dates.includes(yStr) ? yStr : '');
+
+        while (cursorDate && dates.includes(cursorDate)) {
           currentStreak++;
-          const d = new Date(cursor);
+          const d = new Date(cursorDate);
           d.setDate(d.getDate() - 1);
-          cursor = d.toISOString().split('T')[0];
+          cursorDate = d.toISOString().slice(0, 10);
         }
-        
-        // Calculate longest streak
+
+        // Longest streak
         let longestStreak = 0;
         let streak = 0;
         for (let i = 0; i < dates.length; i++) {
-          if (i === 0) streak = 1;
-          else {
+          if (i === 0) {
+            streak = 1;
+          } else {
             const prev = new Date(dates[i - 1]);
             const curr = new Date(dates[i]);
             const diff = Math.round((curr.getTime() - prev.getTime()) / 86400000);
-            if (diff === 1) streak++;
-            else streak = 1;
+            if (diff === 1) {
+              streak++;
+            } else {
+              streak = 1;
+            }
           }
           longestStreak = Math.max(longestStreak, streak);
         }
@@ -135,42 +146,49 @@ export function useHabits() {
           currentStreak,
           longestStreak,
           totalCheckins: dates.length,
-          lastCheckinDate: dates[0] || null,
+          lastCheckinDate: dates[dates.length - 1] || null,
         };
       }
       setStreaks(streakData);
 
-      // Fetch leaderboard
-      try {
-        const board = await api.getLeaderboard();
-        setLeaderboard(board);
-      } catch {
-        // Ignore leaderboard errors
-      }
+      // Build leaderboard from calculated streaks
+      const board: LeaderboardEntry[] = habitsData.map(h => ({
+        habitId: h.id,
+        name: h.name,
+        area: h.area,
+        currentStreak: streakData[h.id]?.currentStreak || 0,
+        longestStreak: streakData[h.id]?.longestStreak || 0,
+      }));
+      board.sort((a, b) => b.currentStreak - a.currentStreak);
+      setLeaderboard(board);
+
     } catch (err) {
       console.error('Failed to load habits:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load habits.');
+      setError(err instanceof Error ? err.message : 'Failed to load habits data.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ownerId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const addHabit = useCallback(async (name: string, area: string, targetDays?: number[]) => {
-    const habit = await api.createHabit(name, area, targetDays);
-    clearCached();
-    setHabits(prev => [...prev, habit]);
-    setCheckins(prev => ({ ...prev, [habit.id]: new Set() }));
-    setStreaks(prev => ({ ...prev, [habit.id]: { habitId: habit.id, currentStreak: 0, longestStreak: 0, totalCheckins: 0, lastCheckinDate: null } }));
-    // Refresh leaderboard
-    const board = await api.getLeaderboard();
-    setLeaderboard(board);
-  }, []);
+    const newHabit = await api.createHabit(name, area, targetDays);
+    clearCached(ownerId);
+    setHabits(prev => [...prev, newHabit]);
+    setCheckins(prev => ({ ...prev, [newHabit.id]: new Set() }));
+    setStreaks(prev => ({
+      ...prev,
+      [newHabit.id]: { habitId: newHabit.id, currentStreak: 0, longestStreak: 0, totalCheckins: 0, lastCheckinDate: null }
+    }));
+    return newHabit;
+  }, [ownerId]);
 
   const deleteHabit = useCallback(async (id: string) => {
     await api.deleteHabit(id);
-    clearCached();
+    clearCached(ownerId);
     setHabits(prev => prev.filter(h => h.id !== id));
     setCheckins(prev => {
       const next = { ...prev };
@@ -185,12 +203,12 @@ export function useHabits() {
     // Refresh leaderboard
     const board = await api.getLeaderboard();
     setLeaderboard(board);
-  }, []);
+  }, [ownerId]);
 
   const toggleCheckin = useCallback(async (id: string, date?: string) => {
     const d = date || today();
     const result = await api.toggleCheckin(id, d);
-    clearCached();
+    clearCached(ownerId);
     setCheckins(prev => {
       const set = new Set(prev[id] || []);
       if (result.checked) set.add(d);
@@ -206,7 +224,7 @@ export function useHabits() {
     } catch {
       // Ignore streak refresh errors
     }
-  }, []);
+  }, [ownerId]);
 
   const isCheckedToday = useCallback((id: string) => {
     return checkins[id]?.has(today()) || false;
@@ -228,11 +246,11 @@ export function useHabits() {
 
   const updateTargetDays = useCallback(async (id: string, targetDays: number[]) => {
     await api.updateTargetDays(id, targetDays);
-    clearCached();
+    clearCached(ownerId);
     setHabits(prev => prev.map(h => 
       h.id === id ? { ...h, target_days: JSON.stringify(targetDays) } : h
     ));
-  }, []);
+  }, [ownerId]);
 
   // Aggregate checkins for heatmap: date -> number of habits checked
   const aggregateCheckins = useCallback((): Record<string, number> => {
