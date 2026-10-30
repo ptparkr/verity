@@ -4596,7 +4596,8 @@ html[data-reduced-motion='true'] * {
   place-items: center;
   padding: clamp(20px, 4vw, 48px);
   background: #060c1a;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ambient orbs */
@@ -4646,10 +4647,10 @@ html[data-reduced-motion='true'] * {
 .guest-entry-panel {
   position: relative;
   z-index: 1;
-  width: min(980px, 100%);
+  width: min(1040px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
-  gap: clamp(32px, 6vw, 80px);
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 340px);
+  gap: clamp(24px, 3.5vw, 48px);
   align-items: center;
   padding: clamp(28px, 5vw, 56px);
   border: 1px solid rgba(180, 210, 255, 0.1);
@@ -4678,6 +4679,7 @@ html[data-reduced-motion='true'] * {
   display: flex;
   flex-direction: column;
   gap: clamp(16px, 2.5vw, 24px);
+  min-width: 0;
 }
 
 .guest-entry-wordmark {
@@ -4712,18 +4714,21 @@ html[data-reduced-motion='true'] * {
   padding: 0.2rem 0.65rem;
 }
 
-.guest-hero-headline {
+.guest-entry-copy .guest-hero-headline {
   font-family: var(--font-sans, "Geist", sans-serif);
-  font-size: clamp(2.2rem, 5.5vw, 4.2rem);
+  font-size: clamp(1.85rem, 2.6vw, 2.75rem);
   font-weight: 800;
-  line-height: 1.0;
+  line-height: 1.08;
   letter-spacing: -0.04em;
   color: #f0f6ff;
   margin: 0;
+  text-wrap: unset;
 }
 
 .guest-hero-em {
   font-style: normal;
+  display: inline-block;
+  max-width: 100%;
   background: linear-gradient(128deg, #8ab4ff 0%, #6fd8ff 52%, #79d3cf 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -4771,6 +4776,7 @@ html[data-reduced-motion='true'] * {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  min-width: 0;
   padding: clamp(20px, 3vw, 28px);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.035);
@@ -4947,15 +4953,15 @@ html[data-reduced-motion='true'] * {
 }
 
 /* ── Responsive ─────────────────────────────────────────────────── */
-@media (max-width: 780px) {
+@media (max-width: 960px) {
   .guest-entry-panel {
     grid-template-columns: 1fr;
     border-radius: 20px;
     gap: 28px;
   }
 
-  .guest-hero-headline {
-    font-size: clamp(2rem, 9vw, 3rem);
+  .guest-entry-copy .guest-hero-headline {
+    font-size: clamp(2rem, 8vw, 2.75rem);
   }
 
   .guest-entry-copy-body {
@@ -4963,6 +4969,25 @@ html[data-reduced-motion='true'] * {
   }
 
   .topbar-user {
+    display: none;
+  }
+}
+
+@media (max-height: 760px) {
+  .guest-entry-shell {
+    padding: 16px;
+  }
+
+  .guest-entry-panel {
+    padding: clamp(20px, 3vw, 32px);
+    gap: 20px;
+  }
+
+  .guest-entry-copy {
+    gap: 12px;
+  }
+
+  .guest-feature-list {
     display: none;
   }
 }

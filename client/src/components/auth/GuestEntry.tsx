@@ -41,7 +41,7 @@ export function GuestEntry() {
 
           <span className="guest-entry-kicker">Local-first · Life compounding</span>
 
-          <h1 className="guest-hero-headline text-balance">
+          <h1 className="guest-hero-headline">
             Build the life<br />
             <em className="guest-hero-em">you're compounding.</em>
           </h1>

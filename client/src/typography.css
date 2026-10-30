@@ -404,9 +404,8 @@ select {
 /* ── Guest entry screen ──────────────────────────────────────────── */
 .guest-entry-copy h1 {
   font-family: var(--font-sans);
-  font-size: var(--text-5xl);
   font-weight: var(--weight-black);
-  line-height: var(--leading-tight);
+  line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tightest);
 }
 
