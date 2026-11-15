@@ -48,11 +48,40 @@ export const COMPOSITE_WEIGHTS: Record<LifeArea, number> = {
 
 /** Maps user-visible/DB area names to canonical LifeArea keys. */
 export const AREA_ALIAS_MAP: Record<string, LifeArea> = {
-  play:    'play',
-  career:  'play',   // existing habits area → maps to Play
-  health:  'health',
-  mind:    'mind',
-  social:  'social',
+  play:         'play',
+  career:       'play',
+  work:         'play',
+  productivity: 'play',
+  job:          'play',
+  business:     'play',
+  projects:     'play',
+  craft:        'play',
+
+  health:       'health',
+  fitness:      'health',
+  workout:      'health',
+  body:         'health',
+  exercise:     'health',
+  sleep:        'health',
+  nutrition:    'health',
+  wellness:     'health',
+
+  mind:         'mind',
+  learning:     'mind',
+  study:        'mind',
+  reading:      'mind',
+  mental:       'mind',
+  focus:        'mind',
+  meditation:   'mind',
+  spirit:       'mind',
+
+  social:       'social',
+  relationships:'social',
+  family:       'social',
+  friends:      'social',
+  community:    'social',
+  connection:   'social',
+  people:       'social',
 };
 
 // ── Types ──────────────────────────────────────────────────────────────────

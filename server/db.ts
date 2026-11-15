@@ -91,7 +91,28 @@ export async function initDb(): Promise<Database> {
     const buffer = fs.readFileSync(DB_PATH);
     db = new SQL.Database(buffer);
   } else {
-    db = new SQL.Database();
+    // Check if seed file exists in project or bundle
+    const candidates = [
+      path.join(process.cwd(), 'verity.db'),
+      path.join(process.cwd(), 'karma-yoga.db'),
+      path.join(__dirname, '..', 'verity.db'),
+      path.join(__dirname, 'verity.db'),
+      path.join('/var/task/verity.db'),
+    ];
+    let loadedFromSeed = false;
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        try {
+          const buffer = fs.readFileSync(cand);
+          db = new SQL.Database(buffer);
+          loadedFromSeed = true;
+          break;
+        } catch {}
+      }
+    }
+    if (!loadedFromSeed) {
+      db = new SQL.Database();
+    }
   }
 
   db.run('PRAGMA foreign_keys = ON');

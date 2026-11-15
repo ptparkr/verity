@@ -1,5 +1,7 @@
 import { getWeekdayShort } from '../../lib/dateUtils';
 import type { WeeklyData } from '../../types';
+import { useAuth } from '../../lib/auth';
+import { getWeeklyMatrixFromLocal } from '../../lib/habitStorage';
 
 interface Props {
   weekly: WeeklyData | null;
@@ -17,7 +19,13 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 export function WeeklyHabitGrid({ weekly, todayStr, onToggle, getColor }: Props) {
-  if (!weekly || weekly.matrix.length === 0) {
+  const { identity } = useAuth();
+  const ownerId = identity?.id || 'default';
+  const effectiveWeekly = (weekly && weekly.matrix.length > 0)
+    ? weekly
+    : getWeeklyMatrixFromLocal(ownerId);
+
+  if (!effectiveWeekly || effectiveWeekly.matrix.length === 0) {
     return null;
   }
 
@@ -35,7 +43,7 @@ export function WeeklyHabitGrid({ weekly, todayStr, onToggle, getColor }: Props)
           <thead>
             <tr>
               <th>Habit</th>
-              {weekly.weekDates.map(date => (
+              {effectiveWeekly.weekDates.map(date => (
                 <th key={date} className={date === todayStr ? 'today-column' : ''}>
                   {getWeekdayShort(date)}
                 </th>
@@ -43,7 +51,7 @@ export function WeeklyHabitGrid({ weekly, todayStr, onToggle, getColor }: Props)
             </tr>
           </thead>
           <tbody>
-            {weekly.matrix.map(row => {
+            {effectiveWeekly.matrix.map(row => {
               const color = getColor(row.area);
 
               return (

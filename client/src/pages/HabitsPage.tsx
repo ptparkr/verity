@@ -156,7 +156,7 @@ export function HabitsPage() {
     return acc;
   }, {} as Record<string, string>);
 
-  if (loading) {
+  if (loading && habits.length === 0) {
     return (
       <div className="page-shell">
         <div className="empty-state"><span className="empty-icon" style={{ animation: 'pulse 1.5s infinite' }}>...</span></div>

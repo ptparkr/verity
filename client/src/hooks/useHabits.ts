@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, HabitWithCheckins } from '../lib/api';
+import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { today } from '../lib/dateUtils';
+import {
+  getStoredData,
+  saveHabitLocal,
+  deleteHabitLocal,
+  toggleCheckinLocal,
+  updateTargetDaysLocal,
+  mergeServerHabits,
+  computeHabitStreak,
+} from '../lib/habitStorage';
 import type { Habit, HabitStreak, LeaderboardEntry } from '../types';
 
 function parseTargetDays(habit: Habit): number[] {
@@ -13,218 +22,156 @@ function parseTargetDays(habit: Habit): number[] {
   }
 }
 
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-interface CachedData {
-  habits: HabitWithCheckins[];
-  timestamp: number;
-}
-
-function getCacheKey(ownerId: string): string {
-  return `verity_habits_cache_${ownerId}`;
-}
-
-function getCached(ownerId: string): CachedData | null {
-  try {
-    const raw = localStorage.getItem(getCacheKey(ownerId));
-    if (!raw) return null;
-    const cached = JSON.parse(raw) as CachedData;
-    if (Date.now() - cached.timestamp > CACHE_TTL) return null;
-    return cached;
-  } catch {
-    return null;
-  }
-}
-
-function setCached(ownerId: string, data: CachedData): void {
-  try {
-    localStorage.setItem(getCacheKey(ownerId), JSON.stringify(data));
-  } catch (err) {
-    console.warn('Failed to cache habits data:', err);
-  }
-}
-
-function clearCached(ownerId: string): void {
-  try {
-    localStorage.removeItem(getCacheKey(ownerId));
-  } catch (err) {
-    console.warn('Failed to clear habits cache:', err);
-  }
-}
-
 export function useHabits() {
   const { identity } = useAuth();
   const ownerId = identity?.id || 'default';
 
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [checkins, setCheckins] = useState<Record<string, Set<string>>>({});
-  const [streaks, setStreaks] = useState<Record<string, HabitStreak>>({});
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (forceRefresh = false) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Try cache first unless force refresh
-      const cached = !forceRefresh ? getCached(ownerId) : null;
-      
-      let data: HabitWithCheckins[];
-      
-      if (cached) {
-        data = cached.habits;
-      } else {
-        // Use batch endpoint - single API call!
-        data = await api.getAllHabitsWithCheckins();
-        setCached(ownerId, { habits: data, timestamp: Date.now() });
-      }
-
-      // Convert to Habit format (add required fields with defaults)
-      const habitsData: Habit[] = data.map(h => ({
-        id: h.id,
-        name: h.name,
-        area: h.area,
-        target_days: h.target_days,
-        created_at: new Date().toISOString(),
-      }));
-      setHabits(habitsData);
-
-      // Build checkins map from batch response (no extra API calls!)
-      const checkinsMap: Record<string, Set<string>> = {};
-      for (const h of data) {
-        checkinsMap[h.id] = new Set(h.checkins);
-      }
-      setCheckins(checkinsMap);
-
-      // Calculate streaks from checkins locally (avoid N+1 API calls)
-      const streakData: Record<string, HabitStreak> = {};
-      for (const h of data) {
-        const dates = [...h.checkins].sort();
-        if (dates.length === 0) {
-          streakData[h.id] = { habitId: h.id, currentStreak: 0, longestStreak: 0, totalCheckins: 0, lastCheckinDate: null };
-          continue;
-        }
-
-        // Current streak
-        let currentStreak = 0;
-        const t = today();
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yStr = yesterday.toISOString().slice(0, 10);
-        let cursorDate = dates.includes(t) ? t : (dates.includes(yStr) ? yStr : '');
-
-        while (cursorDate && dates.includes(cursorDate)) {
-          currentStreak++;
-          const d = new Date(cursorDate);
-          d.setDate(d.getDate() - 1);
-          cursorDate = d.toISOString().slice(0, 10);
-        }
-
-        // Longest streak
-        let longestStreak = 0;
-        let streak = 0;
-        for (let i = 0; i < dates.length; i++) {
-          if (i === 0) {
-            streak = 1;
-          } else {
-            const prev = new Date(dates[i - 1]);
-            const curr = new Date(dates[i]);
-            const diff = Math.round((curr.getTime() - prev.getTime()) / 86400000);
-            if (diff === 1) {
-              streak++;
-            } else {
-              streak = 1;
-            }
-          }
-          longestStreak = Math.max(longestStreak, streak);
-        }
-
-        streakData[h.id] = {
-          habitId: h.id,
-          currentStreak,
-          longestStreak,
-          totalCheckins: dates.length,
-          lastCheckinDate: dates[dates.length - 1] || null,
-        };
-      }
-      setStreaks(streakData);
-
-      // Build leaderboard from calculated streaks
-      const board: LeaderboardEntry[] = habitsData.map(h => ({
+  // Seed initial state immediately from persistent storage
+  const [habits, setHabits] = useState<Habit[]>(() => getStoredData(ownerId).habits);
+  const [checkins, setCheckins] = useState<Record<string, Set<string>>>(() => {
+    const stored = getStoredData(ownerId).checkins;
+    const map: Record<string, Set<string>> = {};
+    for (const [id, dates] of Object.entries(stored)) {
+      map[id] = new Set(dates);
+    }
+    return map;
+  });
+  const [streaks, setStreaks] = useState<Record<string, HabitStreak>>(() => {
+    const stored = getStoredData(ownerId);
+    const map: Record<string, HabitStreak> = {};
+    for (const h of stored.habits) {
+      const dates = stored.checkins[h.id] || [];
+      const s = computeHabitStreak(dates);
+      map[h.id] = { ...s, habitId: h.id };
+    }
+    return map;
+  });
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => {
+    const stored = getStoredData(ownerId);
+    const board: LeaderboardEntry[] = stored.habits.map(h => {
+      const dates = stored.checkins[h.id] || [];
+      const s = computeHabitStreak(dates);
+      return {
         habitId: h.id,
         name: h.name,
         area: h.area,
-        currentStreak: streakData[h.id]?.currentStreak || 0,
-        longestStreak: streakData[h.id]?.longestStreak || 0,
-      }));
-      board.sort((a, b) => b.currentStreak - a.currentStreak);
-      setLeaderboard(board);
+        currentStreak: s.currentStreak,
+        longestStreak: s.longestStreak,
+      };
+    });
+    board.sort((a, b) => b.currentStreak - a.currentStreak);
+    return board;
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    } catch (err) {
-      console.error('Failed to load habits:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load habits data.');
-    } finally {
-      setLoading(false);
+  const applyHabitData = useCallback((habitsList: Habit[], checkinsDict: Record<string, string[]>) => {
+    setHabits(habitsList);
+
+    const cMap: Record<string, Set<string>> = {};
+    const sMap: Record<string, HabitStreak> = {};
+    for (const h of habitsList) {
+      const dates = checkinsDict[h.id] || [];
+      cMap[h.id] = new Set(dates);
+      const s = computeHabitStreak(dates);
+      sMap[h.id] = { ...s, habitId: h.id };
     }
-  }, [ownerId]);
+    setCheckins(cMap);
+    setStreaks(sMap);
+
+    const board: LeaderboardEntry[] = habitsList.map(h => ({
+      habitId: h.id,
+      name: h.name,
+      area: h.area,
+      currentStreak: sMap[h.id]?.currentStreak || 0,
+      longestStreak: sMap[h.id]?.longestStreak || 0,
+    }));
+    board.sort((a, b) => b.currentStreak - a.currentStreak);
+    setLeaderboard(board);
+  }, []);
+
+  const load = useCallback(async (_forceRefresh = false) => {
+    setError(null);
+
+    // 1. Load instantly from local persistent storage
+    const currentLocal = getStoredData(ownerId);
+    applyHabitData(currentLocal.habits, currentLocal.checkins);
+
+    // 2. Sync with server in background / try-catch
+    try {
+      const serverData = await api.getAllHabitsWithCheckins();
+      // Safely merge without discarding local habits
+      const merged = mergeServerHabits(ownerId, serverData);
+      applyHabitData(merged.habits, merged.checkins);
+    } catch (err) {
+      // Local copy is fully intact; log warning without breaking user flow
+      console.warn('Server sync unavailable, using persistent local habits:', err);
+    }
+  }, [ownerId, applyHabitData]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const addHabit = useCallback(async (name: string, area: string, targetDays?: number[]) => {
-    const newHabit = await api.createHabit(name, area, targetDays);
-    clearCached(ownerId);
-    setHabits(prev => [...prev, newHabit]);
-    setCheckins(prev => ({ ...prev, [newHabit.id]: new Set() }));
-    setStreaks(prev => ({
-      ...prev,
-      [newHabit.id]: { habitId: newHabit.id, currentStreak: 0, longestStreak: 0, totalCheckins: 0, lastCheckinDate: null }
-    }));
+    const daysArr = Array.isArray(targetDays) ? targetDays : [0, 1, 2, 3, 4, 5, 6];
+    const habitId = `h_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const newHabit: Habit = {
+      id: habitId,
+      name: name.trim(),
+      area,
+      target_days: JSON.stringify(daysArr),
+      created_at: new Date().toISOString(),
+    };
+
+    // Save locally first — GUARANTEED persistence
+    const updated = saveHabitLocal(ownerId, newHabit);
+    applyHabitData(updated.habits, updated.checkins);
+
+    // Sync with serverless backend
+    try {
+      const serverHabit = await api.createHabit(name, area, daysArr);
+      if (serverHabit && serverHabit.id && serverHabit.id !== habitId) {
+        // Update local id to match server if server generated a different id
+        const alignedHabit: Habit = { ...newHabit, id: serverHabit.id };
+        deleteHabitLocal(ownerId, habitId);
+        const aligned = saveHabitLocal(ownerId, alignedHabit);
+        applyHabitData(aligned.habits, aligned.checkins);
+        return alignedHabit;
+      }
+    } catch (err) {
+      console.warn('API createHabit failed, habit saved locally:', err);
+    }
+
     return newHabit;
-  }, [ownerId]);
+  }, [ownerId, applyHabitData]);
 
   const deleteHabit = useCallback(async (id: string) => {
-    await api.deleteHabit(id);
-    clearCached(ownerId);
-    setHabits(prev => prev.filter(h => h.id !== id));
-    setCheckins(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    setStreaks(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    // Refresh leaderboard
-    const board = await api.getLeaderboard();
-    setLeaderboard(board);
-  }, [ownerId]);
+    // Delete locally first
+    const updated = deleteHabitLocal(ownerId, id);
+    applyHabitData(updated.habits, updated.checkins);
+
+    // Sync deletion to server
+    try {
+      await api.deleteHabit(id);
+    } catch (err) {
+      console.warn('API deleteHabit failed, habit deleted locally:', err);
+    }
+  }, [ownerId, applyHabitData]);
 
   const toggleCheckin = useCallback(async (id: string, date?: string) => {
     const d = date || today();
-    const result = await api.toggleCheckin(id, d);
-    clearCached(ownerId);
-    setCheckins(prev => {
-      const set = new Set(prev[id] || []);
-      if (result.checked) set.add(d);
-      else set.delete(d);
-      return { ...prev, [id]: set };
-    });
-    // Refresh streak for this habit
+    // Toggle locally first
+    const { data: updated } = toggleCheckinLocal(ownerId, id, d);
+    applyHabitData(updated.habits, updated.checkins);
+
+    // Sync with server
     try {
-      const streak = await api.getStreak(id);
-      setStreaks(prev => ({ ...prev, [id]: streak }));
-      const board = await api.getLeaderboard();
-      setLeaderboard(board);
-    } catch {
-      // Ignore streak refresh errors
+      await api.toggleCheckin(id, d);
+    } catch (err) {
+      console.warn('API toggleCheckin failed, checkin saved locally:', err);
     }
-  }, [ownerId]);
+  }, [ownerId, applyHabitData]);
 
   const isCheckedToday = useCallback((id: string) => {
     return checkins[id]?.has(today()) || false;
@@ -245,14 +192,16 @@ export function useHabits() {
   }, [habits]);
 
   const updateTargetDays = useCallback(async (id: string, targetDays: number[]) => {
-    await api.updateTargetDays(id, targetDays);
-    clearCached(ownerId);
-    setHabits(prev => prev.map(h => 
-      h.id === id ? { ...h, target_days: JSON.stringify(targetDays) } : h
-    ));
-  }, [ownerId]);
+    const updated = updateTargetDaysLocal(ownerId, id, targetDays);
+    applyHabitData(updated.habits, updated.checkins);
 
-  // Aggregate checkins for heatmap: date -> number of habits checked
+    try {
+      await api.updateTargetDays(id, targetDays);
+    } catch (err) {
+      console.warn('API updateTargetDays failed, updated locally:', err);
+    }
+  }, [ownerId, applyHabitData]);
+
   const aggregateCheckins = useCallback((): Record<string, number> => {
     const map: Record<string, number> = {};
     Object.values(checkins).forEach(dateSet => {
@@ -263,21 +212,21 @@ export function useHabits() {
     return map;
   }, [checkins]);
 
-  return { 
-    habits, 
-    checkins, 
+  return {
+    habits,
+    checkins,
     streaks,
     leaderboard,
-    loading, 
-    error, 
-    addHabit, 
-    deleteHabit, 
-    toggleCheckin, 
+    loading,
+    error,
+    addHabit,
+    deleteHabit,
+    toggleCheckin,
     isCheckedToday,
     isScheduledToday,
     getTargetDays,
     updateTargetDays,
-    aggregateCheckins, 
-    refresh: load 
+    aggregateCheckins,
+    refresh: load,
   };
 }

@@ -1,9 +1,9 @@
 import { useDashboard } from '../hooks/useDashboard';
 import { useTargets } from '../hooks/useTargets';
 import { useAreaColors } from '../hooks/useAreaColors';
-import { useAnalytics } from '../hooks/useAnalytics';
-import { useScoring, AREA_COLORS } from '../hooks/useScoring';
+import { useScoring } from '../hooks/useScoring';
 import { useAuth } from '../lib/auth';
+import { CompositeHero } from '../components/dashboard/CompositeHero';
 import { AreaChecklist } from '../components/dashboard/AreaChecklist';
 import { WeeklyHabitGrid } from '../components/dashboard/WeeklyHabitGrid';
 import { TargetsPanel } from '../components/dashboard/TargetsPanel';
@@ -15,9 +15,7 @@ import type { LifeArea } from '../lib/scoring';
 export function DashboardPage() {
   const { identity } = useAuth();
   const {
-    streaks,
     weekly,
-    consistency,
     loading,
     error,
     toggleCheckin,
@@ -25,7 +23,6 @@ export function DashboardPage() {
   } = useDashboard();
   const { getColor } = useAreaColors();
   const { targets, addTarget, updateTarget, removeTarget, completeTarget, setPrimary } = useTargets();
-  const { weeklyReport } = useAnalytics();
   const { areScores, composite, loading: scoringLoading } = useScoring();
 
   const today = new Date();
@@ -39,7 +36,7 @@ export function DashboardPage() {
     areaScoreMap[s.area] = s.score;
   }
 
-  if (loading && streaks.length === 0) {
+  if (loading) {
     return <DashboardShimmer />;
   }
 
@@ -60,58 +57,13 @@ export function DashboardPage() {
         />
       )}
 
-      {/* ── Composite Score & Momentum Section ── */}
-      <div className="dashboard-metrics-row anim-stagger-2">
-        {!scoringLoading && composite > 0 && (
-          <div
-            className="streak-card dashboard-composite-card"
-            style={{
-              borderColor: 'rgba(0, 255, 204, 0.35)',
-              background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.12) 0%, rgba(16, 185, 129, 0.05) 100%)',
-            }}
-          >
-            <div className="streak-card-icon" style={{ color: '#00ffcc' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <div className="streak-card-content">
-              <div className="streak-card-value" style={{ color: '#00ffcc' }}>
-                {Math.round(composite)}<span className="streak-card-unit">/100</span>
-              </div>
-              <div className="streak-card-label">Composite Score</div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Area Score Pills (per-area momentum) ── */}
-        {!scoringLoading && areScores.length > 0 && (
-          <div className="dashboard-momentum-row">
-            {areScores.map(({ area, score, label }) => {
-              const areaColor = AREA_COLORS[area as LifeArea] || '#00ffcc';
-              return (
-                <div
-                  key={area}
-                  className="analytics-card momentum-card"
-                  style={{
-                    borderColor: `${areaColor}35`,
-                    background: `linear-gradient(135deg, ${areaColor}15 0%, rgba(12, 19, 32, 0.6) 100%)`,
-                  }}
-                >
-                  <div
-                    className="analytics-card-value"
-                    style={{ color: areaColor, fontSize: '1.5rem' }}
-                  >
-                    {score.toFixed(0)}
-                  </div>
-                  <div className="analytics-card-label">{label}</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      {/* ── Composite Score Hero Section ── */}
+      <div className="anim-stagger-2">
+        <CompositeHero
+          composite={composite}
+          areaScores={areScores}
+          loading={scoringLoading}
+        />
       </div>
 
       {/* ── Targets + Area Checklist ── */}

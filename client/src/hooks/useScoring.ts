@@ -1,15 +1,7 @@
-/**
- * useScoring — Verity area scoring hook
- *
- * Loads habit + check-in data and runs the EMA scoring engine
- * (TypeScript implementation from lib/scoring.ts — always available,
- *  regardless of whether the Rust binary is present).
- *
- * If the Rust analytics response already includes scoring data,
- * it will be used as-is (identical math). The TS engine is the fallback.
- */
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, HabitWithCheckins } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { getHabitsWithCheckinsFromLocal } from '../lib/habitStorage';
 import {
   buildScoringTimeSeries,
   buildZoomedViews,
@@ -22,7 +14,7 @@ import {
 
 export interface AreaCurrentScore {
   area: LifeArea;
-  score: number;  // 0–100
+  score: number; // 0–100
   label: string;
 }
 
@@ -37,23 +29,33 @@ export interface ScoringState {
   error: string | null;
 }
 
-const AREA_LABELS: Record<LifeArea, string> = {
-  play:   'Play',
+export const AREA_LABELS: Record<LifeArea, string> = {
+  play: 'Play',
   health: 'Health',
-  mind:   'Mind',
+  mind: 'Mind',
   social: 'Social',
 };
 
 /** Canonical display color per area */
 export const AREA_COLORS: Record<LifeArea, string> = {
-  play:   '#58a6ff',
+  play: '#58a6ff',
   health: '#3fb950',
-  mind:   '#bc8cff',
+  mind: '#bc8cff',
   social: '#f0883e',
 };
 
+const DEFAULT_AREA_SCORES: AreaCurrentScore[] = [
+  { area: 'play', score: 0, label: AREA_LABELS.play },
+  { area: 'health', score: 0, label: AREA_LABELS.health },
+  { area: 'mind', score: 0, label: AREA_LABELS.mind },
+  { area: 'social', score: 0, label: AREA_LABELS.social },
+];
+
 export function useScoring(): ScoringState & { refresh: () => void } {
-  const [areaScores, setAreaScores] = useState<AreaCurrentScore[]>([]);
+  const { identity } = useAuth();
+  const ownerId = identity?.id || 'default';
+
+  const [areaScores, setAreaScores] = useState<AreaCurrentScore[]>(DEFAULT_AREA_SCORES);
   const [composite, setComposite] = useState(0);
   const [series, setSeries] = useState<CompositeScoreSeries | null>(null);
   const [zoomedView, setZoomedView] = useState<ZoomedView | null>(null);
@@ -65,24 +67,39 @@ export function useScoring(): ScoringState & { refresh: () => void } {
     setError(null);
 
     try {
-      // Fetch habits + all check-in entries
-      const [habitsWithCheckins] = await Promise.all([
-        api.getHabitsWithCheckins(),
-      ]);
+      let habitsWithCheckins: HabitWithCheckins[] = [];
 
-      // Build flat entry list from API response
+      try {
+        habitsWithCheckins = await api.getHabitsWithCheckins();
+      } catch (err) {
+        console.warn('API getHabitsWithCheckins unavailable, reading from local store:', err);
+      }
+
+      // If server returned empty, fallback to local storage
+      if (!habitsWithCheckins || habitsWithCheckins.length === 0) {
+        habitsWithCheckins = getHabitsWithCheckinsFromLocal(ownerId);
+      }
+
+      // Build flat entry list
       const entries: { habitId: string; date: string; area: string; completed: boolean }[] = [];
       const habitsFlat: { id: string; area: string; target_days?: string }[] = [];
 
       for (const h of habitsWithCheckins) {
-        // Only include habits in the 4 canonical areas
         const canonical = AREA_ALIAS_MAP[(h.area ?? '').toLowerCase()];
         if (!canonical) continue;
 
-        habitsFlat.push({ id: h.id, area: h.area, target_days: h.target_days });
+        habitsFlat.push({ id: h.id, area: canonical, target_days: h.target_days });
         for (const date of (h.checkins ?? []) as string[]) {
-          entries.push({ habitId: h.id, date, area: h.area, completed: true });
+          entries.push({ habitId: h.id, date, area: canonical, completed: true });
         }
+      }
+
+      if (habitsFlat.length === 0) {
+        setAreaScores(DEFAULT_AREA_SCORES);
+        setComposite(0);
+        setSeries(null);
+        setZoomedView(null);
+        return;
       }
 
       const scoringSeries = buildScoringTimeSeries(entries, habitsFlat, undefined, SCORING_ALPHA);
@@ -91,30 +108,34 @@ export function useScoring(): ScoringState & { refresh: () => void } {
       const zoomed = buildZoomedViews(scoringSeries);
       setZoomedView(zoomed);
 
-      // Current scores: last point in each area series
       const n = scoringSeries.dates.length;
       if (n > 0) {
         const last = n - 1;
         const areas: AreaCurrentScore[] = [
-          { area: 'play',   score: scoringSeries.play[last],   label: AREA_LABELS.play },
-          { area: 'health', score: scoringSeries.health[last], label: AREA_LABELS.health },
-          { area: 'mind',   score: scoringSeries.mind[last],   label: AREA_LABELS.mind },
-          { area: 'social', score: scoringSeries.social[last], label: AREA_LABELS.social },
+          { area: 'play', score: scoringSeries.play[last] || 0, label: AREA_LABELS.play },
+          { area: 'health', score: scoringSeries.health[last] || 0, label: AREA_LABELS.health },
+          { area: 'mind', score: scoringSeries.mind[last] || 0, label: AREA_LABELS.mind },
+          { area: 'social', score: scoringSeries.social[last] || 0, label: AREA_LABELS.social },
         ];
         setAreaScores(areas);
-        setComposite(scoringSeries.composite[last]);
+        setComposite(scoringSeries.composite[last] || 0);
       } else {
-        setAreaScores([]);
+        setAreaScores(DEFAULT_AREA_SCORES);
         setComposite(0);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load scoring data');
+      console.warn('Scoring computation error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to calculate score');
+      setAreaScores(DEFAULT_AREA_SCORES);
+      setComposite(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ownerId]);
 
-  useEffect(() => { void compute(); }, [compute]);
+  useEffect(() => {
+    void compute();
+  }, [compute]);
 
   return {
     areaScores,

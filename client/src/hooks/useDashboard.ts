@@ -1,90 +1,68 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import {
+  getWeeklyMatrixFromLocal,
+  getStreaksFromLocal,
+  getAreasFromLocal,
+  getConsistencyFromLocal,
+  toggleCheckinLocal,
+  getStoredData,
+} from '../lib/habitStorage';
 import type { AreaSummary, ConsistencyData, StreakData, WeeklyData } from '../types';
-
-const DASHBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-interface DashboardCache {
-  streaks: StreakData[];
-  weekly: WeeklyData | null;
-  areas: AreaSummary[];
-  consistency: ConsistencyData | null;
-  timestamp: number;
-}
-
-function getCacheKey(ownerId: string): string {
-  return `verity_dashboard_cache_${ownerId}`;
-}
-
-function getDashboardCached(ownerId: string): DashboardCache | null {
-  try {
-    const raw = localStorage.getItem(getCacheKey(ownerId));
-    if (!raw) return null;
-    const cached = JSON.parse(raw) as DashboardCache;
-    if (Date.now() - cached.timestamp > DASHBOARD_CACHE_TTL) return null;
-    return cached;
-  } catch {
-    return null;
-  }
-}
-
-function setDashboardCached(ownerId: string, data: DashboardCache): void {
-  try {
-    localStorage.setItem(getCacheKey(ownerId), JSON.stringify(data));
-  } catch (err) {
-    console.warn('Failed to cache dashboard data:', err);
-  }
-}
 
 export function useDashboard() {
   const { identity } = useAuth();
   const ownerId = identity?.id || 'default';
 
-  const [streaks, setStreaks] = useState<StreakData[]>(() => getDashboardCached(ownerId)?.streaks || []);
-  const [weekly, setWeekly] = useState<WeeklyData | null>(() => getDashboardCached(ownerId)?.weekly || null);
-  const [areas, setAreas] = useState<AreaSummary[]>(() => getDashboardCached(ownerId)?.areas || []);
-  const [consistency, setConsistency] = useState<ConsistencyData | null>(() => getDashboardCached(ownerId)?.consistency || null);
-  const [loading, setLoading] = useState(() => !getDashboardCached(ownerId));
+  // Initialize immediately from persistent local store
+  const [streaks, setStreaks] = useState<StreakData[]>(() => getStreaksFromLocal(ownerId));
+  const [weekly, setWeekly] = useState<WeeklyData | null>(() => getWeeklyMatrixFromLocal(ownerId));
+  const [areas, setAreas] = useState<AreaSummary[]>(() => getAreasFromLocal(ownerId));
+  const [consistency, setConsistency] = useState<ConsistencyData | null>(() => getConsistencyFromLocal(ownerId));
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (forceRefresh = false) => {
-    setError(null);
+  const syncFromLocal = useCallback(() => {
+    setStreaks(getStreaksFromLocal(ownerId));
+    setWeekly(getWeeklyMatrixFromLocal(ownerId));
+    setAreas(getAreasFromLocal(ownerId));
+    setConsistency(getConsistencyFromLocal(ownerId));
+  }, [ownerId]);
 
-    // Only show loading if no cache available
-    const cached = !forceRefresh ? getDashboardCached(ownerId) : null;
-    if (!cached) {
-      setLoading(true);
-    }
+  const load = useCallback(async () => {
+    setError(null);
+    syncFromLocal();
 
     try {
-      // Fetch fresh data
       const [s, w, a, c] = await Promise.all([
         api.getStreaks(),
         api.getWeekly(),
         api.getAreas(),
         api.getConsistency(),
       ]);
-      setStreaks(s);
-      setWeekly(w);
-      setAreas(a);
-      setConsistency(c);
-      
-      // Cache the data scoped to this owner
-      setDashboardCached(ownerId, {
-        streaks: s,
-        weekly: w,
-        areas: a,
-        consistency: c,
-        timestamp: Date.now(),
-      });
+
+      const localData = getStoredData(ownerId);
+      const hasLocalHabits = localData.habits.length > 0;
+
+      // Only use server data if it's not empty, or if we have no local habits
+      if (s && (s.length > 0 || !hasLocalHabits)) {
+        setStreaks(s);
+      }
+      if (w && (w.matrix.length > 0 || !hasLocalHabits)) {
+        setWeekly(w);
+      }
+      if (a && (a.length > 0 || !hasLocalHabits)) {
+        setAreas(a);
+      }
+      if (c && (c.totalHabits > 0 || !hasLocalHabits)) {
+        setConsistency(c);
+      }
     } catch (err) {
-      console.error('Failed to load dashboard:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
-    } finally {
-      setLoading(false);
+      console.warn('Dashboard server sync unavailable, using persistent local store:', err);
+      syncFromLocal();
     }
-  }, [ownerId]);
+  }, [ownerId, syncFromLocal]);
 
   useEffect(() => {
     void load();
@@ -92,17 +70,19 @@ export function useDashboard() {
 
   const toggleCheckin = useCallback(async (habitId: string, date: string) => {
     try {
+      // Toggle locally first — instant response & resilient persistence
+      toggleCheckinLocal(ownerId, habitId, date);
+      syncFromLocal();
+
+      // Sync to API in background
       await api.toggleCheckin(habitId, date);
-      // Reload dashboard data
-      await load(true);
     } catch (err) {
-      console.error('Failed to toggle checkin:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update check-in.');
+      console.warn('API toggleCheckin failed, state preserved locally:', err);
     }
-  }, [load]);
+  }, [ownerId, syncFromLocal]);
 
   const refresh = useCallback(async () => {
-    await load(true);
+    await load();
   }, [load]);
 
   return {
